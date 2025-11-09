@@ -6,18 +6,13 @@ import Navbar from '@/components/Navbar'
 export const metadata: Metadata = { title: 'elo-arena', description: 'Next.js + Supabase' }
 
 export default async function RootLayout({ children }: { children: React.ReactNode }) {
-  const supabase = await createSupabaseServer()  // <- dodaj await
-
+  const supabase = await createSupabaseServer()
   const { data: { user } } = await supabase.auth.getUser()
 
-  let role: 'admin' | 'user' | null = null
+  let role: 'admin'|'user'|null = null
   if (user) {
-    const { data: profile } = await supabase
-      .from('profiles')
-      .select('role')
-      .eq('id', user.id)
-      .single()
-    role = (profile?.role as 'admin'|'user') ?? 'user'
+    const { data: profile } = await supabase.from('profiles').select('role').eq('id', user.id).single()
+    role = (profile?.role as any) ?? 'user'
   }
 
   return (
