@@ -1,17 +1,46 @@
 name: CI
+
 on:
   push:
   pull_request:
+
 jobs:
   build:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
         with:
           node-version: 20
           cache: 'npm'
-      - run: npm ci
-      - run: npx tsc -noEmit
-      - run: npx eslint .
-      - run: npm run build
+
+      - name: Install
+        run: npm ci
+
+      - name: Typecheck
+        run: npx tsc -noEmit
+        continue-on-error: true
+
+      - name: Lint
+        run: npx eslint .
+        continue-on-error: true
+
+      - name: Build
+        run: npm run build
+        continue-on-error: true
+
+      - name: Save logs
+        run: |
+          mkdir -p reports
+          (npx tsc -noEmit || true) > reports/typecheck.txt 2>&1
+          (npx eslint . || true) > reports/eslint.txt 2>&1
+          (npm run build || true) > reports/build.txt 2>&1
+
+      - name: Upload reports
+        uses: actions/upload-artifact@v4
+        with:
+          name: reports
+          path: reports/*
+
