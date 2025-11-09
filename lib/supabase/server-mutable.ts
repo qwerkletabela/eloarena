@@ -1,18 +1,23 @@
+// lib/supabase/server-mutable.ts
 import { cookies } from 'next/headers'
 import { createServerClient, type CookieOptions } from '@supabase/ssr'
 
-export function createSupabaseServerMutable() {
+export async function createSupabaseServerMutable() {
+  const store = await cookies()
+
   return createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
     {
       cookies: {
-        get: (name: string) => cookies().get(name)?.value,
-        set: (name: string, value: string, options?: CookieOptions) => {
-          cookies().set({ name, value, ...options })
+        get(name: string) {
+          return store.get(name)?.value
         },
-        remove: (name: string, options?: CookieOptions) => {
-          cookies().set({ name, value: '', ...options, maxAge: 0 })
+        set(name: string, value: string, options?: CookieOptions) {
+          store.set({ name, value, ...options })
+        },
+        remove(name: string, options?: CookieOptions) {
+          store.set({ name, value: '', ...options, maxAge: 0 })
         },
       },
     }
