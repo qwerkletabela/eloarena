@@ -1,5 +1,4 @@
 'use client'
-
 import { useState } from 'react'
 import { supabase } from '@/lib/supabase/client'
 import { useRouter } from 'next/navigation'
@@ -15,12 +14,11 @@ export default function SignIn() {
     e.preventDefault()
     setErr(null); setLoading(true)
     try {
-      // 1) Rozwiąż email, jeśli wpisano login
+      // 1) Ustal email jeśli wpisano login
       let email = identifier.trim()
       if (!email.includes('@')) {
         const res = await fetch('/api/resolve-email', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ identifier })
         })
         const json = await res.json()
@@ -32,9 +30,17 @@ export default function SignIn() {
       const { error } = await supabase.auth.signInWithPassword({ email, password })
       if (error) throw error
 
-      // 3) Po zalogowaniu – listener + router.refresh() zrobią resztę
+      // 3) Pobierz bieżącą sesję i ręcznie zsynchronizuj cookies SSR
+      const { data: sess } = await supabase.auth.getSession()
+      await fetch('/auth/callback', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ event: 'SIGNED_IN', session: sess.session }),
+      })
+
+      // 4) Przejdź na stronę główną – SSR już „widzi” sesję
       router.push('/')
-    } catch (e: any) {
+    } catch (e:any) {
       setErr(e?.message ?? 'Logowanie nieudane.')
     } finally {
       setLoading(false)
@@ -45,21 +51,12 @@ export default function SignIn() {
     <main className="mx-auto max-w-md p-6 space-y-4">
       <h1 className="text-2xl font-semibold">Logowanie</h1>
       <form onSubmit={onSubmit} className="space-y-3">
-        <input
-          className="w-full rounded border px-3 py-2"
-          placeholder="Email lub login"
-          value={identifier}
-          onChange={e=>setIdentifier(e.target.value)}
-          required
-        />
-        <input
-          className="w-full rounded border px-3 py-2"
-          type="password"
-          placeholder="Hasło"
-          value={password}
-          onChange={e=>setPassword(e.target.value)}
-          required
-        />
+        <input className="w-full rounded border px-3 py-2"
+               placeholder="Email lub login"
+               value={identifier} onChange={e=>setIdentifier(e.target.value)} required />
+        <input className="w-full rounded border px-3 py-2"
+               type="password" placeholder="Hasło"
+               value={password} onChange={e=>setPassword(e.target.value)} required />
         {err && <p className="text-sm text-red-600">{err}</p>}
         <button className="rounded bg-black px-4 py-2 text-white disabled:opacity-50" disabled={loading}>
           {loading ? 'Loguję…' : 'Zaloguj'}
