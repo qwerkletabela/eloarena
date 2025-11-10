@@ -2,6 +2,7 @@ import './globals.css'
 import type { Metadata } from 'next'
 import { createSupabaseServer } from '@/lib/supabase/server'
 import Navbar from '@/components/Navbar'
+import AuthListener from '@/components/AuthListener'
 
 export const metadata: Metadata = { title: 'elo-arena', description: 'Next.js + Supabase' }
 
@@ -18,6 +19,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
   return (
     <html lang="pl">
       <body className="min-h-dvh antialiased">
+        <AuthListener />  {/* <--- DODANE */}
         <Navbar user={user ? { id: user.id, email: user.email } : null} role={role} />
         {children}
       </body>

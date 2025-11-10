@@ -7,7 +7,6 @@ export default function Navbar({ user, role }: { user: { id: string; email?: str
       <div className="mx-auto flex max-w-5xl items-center justify-between p-4">
         <Link href="/" className="font-semibold">elo-arena</Link>
         <div className="flex items-center gap-3">
-          <Link href="/posts">Posty</Link>
           {role === 'admin' && <Link href="/admin">Admin</Link>}
           {user ? (
             <>
