@@ -2,6 +2,8 @@ import './globals.css'
 import type { Metadata } from 'next'
 import { createSupabaseServer } from '@/lib/supabase/server'
 import Navbar from '@/components/Navbar'
+import './globals.css'
+
 
 // ważne: wyłącz cache dla layoutu
 export const dynamic = 'force-dynamic'
