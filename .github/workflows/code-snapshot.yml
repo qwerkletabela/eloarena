@@ -1,0 +1,49 @@
+name: Code Snapshot
+on:
+  push:
+  pull_request:
+
+jobs:
+  snapshot:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - name: Generate snapshot
+        run: |
+          echo "# Code snapshot ($(date -u +%Y-%m-%dT%H:%M:%SZ))" > code-snapshot.md
+          echo "" >> code-snapshot.md
+          echo "## Git" >> code-snapshot.md
+          echo "" >> code-snapshot.md
+          echo '```' >> code-snapshot.md
+          git log -1 --pretty=fuller >> code-snapshot.md
+          echo '```' >> code-snapshot.md
+          echo "" >> code-snapshot.md
+
+          echo "## Tree" >> code-snapshot.md
+          echo "" >> code-snapshot.md
+          echo '```' >> code-snapshot.md
+          (ls -la; echo ""; echo "app/"; find app -maxdepth 3 -type f 2>/dev/null || true; \
+           echo ""; echo "components/"; find components -maxdepth 2 -type f 2>/dev/null || true; \
+           echo ""; echo "lib/"; find lib -maxdepth 3 -type f 2>/dev/null || true) >> code-snapshot.md
+          echo '```' >> code-snapshot.md
+          echo "" >> code-snapshot.md
+
+          echo "## Files" >> code-snapshot.md
+          echo "" >> code-snapshot.md
+          for f in $(git ls-files | grep -E '^(app|components|lib|pages|hooks|utils)/|^(package\.json|tsconfig\.json|tailwind\.config\.(t|j)s|next\.config\.(t|j)s|eslint\.config\.mjs|postcss\.config\.(m|j)s)$'); do
+            echo "### $f" >> code-snapshot.md
+            echo "" >> code-snapshot.md
+            echo '```' >> code-snapshot.md
+            sed -n '1,400p' "$f" >> code-snapshot.md
+            echo '```' >> code-snapshot.md
+            echo "" >> code-snapshot.md
+          done
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: code-snapshot
+          path: code-snapshot.md
