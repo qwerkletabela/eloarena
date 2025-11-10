@@ -1,7 +1,17 @@
 name: Code Snapshot
+
 on:
   push:
+    paths-ignore:
+      - 'snapshots/**'        # nie odpalaj ponownie po dodaniu snapshotu
   pull_request:
+
+permissions:
+  contents: write             # pozwala na commit z GitHub Actions
+
+concurrency:
+  group: snapshot-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   snapshot:
@@ -15,6 +25,7 @@ jobs:
         run: |
           echo "# Code snapshot ($(date -u +%Y-%m-%dT%H:%M:%SZ))" > code-snapshot.md
           echo "" >> code-snapshot.md
+
           echo "## Git" >> code-snapshot.md
           echo "" >> code-snapshot.md
           echo '```' >> code-snapshot.md
@@ -47,3 +58,18 @@ jobs:
         with:
           name: code-snapshot
           path: code-snapshot.md
+
+      # --- Zapis snapshotu do repo (łatwy podgląd bez pobierania artefaktów) ---
+      - name: Save snapshot file into repo
+        run: |
+          mkdir -p snapshots
+          ts=$(date -u +%Y%m%d-%H%M%SZ)
+          cp code-snapshot.md "snapshots/code-snapshot-$ts.md"
+
+      - name: Commit snapshot
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add snapshots/
+          git commit -m "chore(snapshot): add code snapshot ${{ github.sha }}" || echo "No changes"
+          git push
