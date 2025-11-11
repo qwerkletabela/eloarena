@@ -25,11 +25,11 @@
   /* „Pigułka” – baza */
   .pill {
     @apply no-underline hover:no-underline
-           inline-flex items-center gap-3 rounded-full px-5 py-3 text-sm font-semibold
+           inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm font-semibold
            transition focus:outline-none focus-visible:ring-2 focus-visible:ring-red-500 focus-visible:ring-offset-2
            transition-shadow transform-gpu hover:-translate-y-0.5 active:translate-y-0;
   }
-  /* warianty pigułki */
+
   .pill--primary {
     @apply text-white bg-gradient-to-b from-red-500 to-red-600
            hover:from-red-600 hover:to-red-700 active:from-red-700 active:to-red-800
@@ -37,6 +37,7 @@
            hover:shadow-[0_9px_20px_rgba(220,38,38,0.35)]
            active:shadow-[0_4px_10px_rgba(220,38,38,0.25)];
   }
+
   .pill--secondary {
     @apply text-red-700 border border-red-200 bg-white
            hover:bg-red-50 active:bg-red-100
@@ -45,11 +46,8 @@
            active:shadow-[0_3px_8px_rgba(0,0,0,0.08)];
   }
 
-  /* kółko ze strzałką na końcu przycisku */
-  .pill__icon {
-    @apply inline-flex h-6 w-6 items-center justify-center rounded-full border border-red-300 text-red-700;
+  .pill__icon { /* mniejsza kropka/strzałka */
+    @apply inline-flex h-5 w-5 items-center justify-center rounded-full border border-red-300 text-red-700;
   }
-  .pill__icon--light {
-    @apply border-white/80 text-white;
-  }
+  .pill__icon--light { @apply border-white/80 text-white; }
 }
