@@ -37,5 +37,5 @@ export async function POST(req: NextRequest) {
   }
 
   const url = new URL('/profile?ok=1', process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000')
-  return NextResponse.redirect(url)
+  return NextResponse.redirect(url, { status: 303 })
 }

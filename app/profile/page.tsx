@@ -1,9 +1,18 @@
 import { redirect } from 'next/navigation'
 import { createSupabaseServer } from '@/lib/supabase/server'
 
-type Search = { ok?: string; e?: string }
+// Uwaga: searchParams jest Promisem
+type SearchParams = Promise<Record<string, string | string[] | undefined>>
 
-export default async function ProfilePage({ searchParams }: { searchParams: Search }) {
+export default async function ProfilePage({
+  searchParams,
+}: {
+  searchParams: SearchParams
+}) {
+  const sp = await searchParams
+  const ok = sp.ok === '1'
+  const err = typeof sp.e === 'string' ? sp.e : undefined
+
   const supabase = await createSupabaseServer()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect('/auth/signin')
@@ -20,14 +29,14 @@ export default async function ProfilePage({ searchParams }: { searchParams: Sear
     <main className="mx-auto max-w-xl p-6 space-y-6">
       <h1 className="text-2xl font-semibold">Twój profil</h1>
 
-      {searchParams.ok === '1' && (
+      {ok && (
         <div className="rounded-md border border-green-200 bg-green-50 px-3 py-2 text-sm text-green-700">
           Zapisano zmiany.
         </div>
       )}
-      {searchParams.e && (
+      {err && (
         <div className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
-          {searchParams.e === 'username_taken' ? 'Login zajęty.' : 'Nie udało się zapisać. Spróbuj ponownie.'}
+          {err === 'username_taken' ? 'Login zajęty.' : 'Nie udało się zapisać. Spróbuj ponownie.'}
         </div>
       )}
 
