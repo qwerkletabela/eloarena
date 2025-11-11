@@ -92,8 +92,8 @@ export default function Navbar({ user, role }: { user: UserLite; role: Role }) {
         <div className="md:hidden border-t border-red-200 bg-white">
           <div className="mx-auto flex max-w-6xl flex-col gap-2 px-4 py-3">
             <NavLink href="/">Strona główna</NavLink>
-            {user && <NavLink href="/posts">Posty</NavLink>}
-            <NavLink href="/profile">Profil</NavLink>
+            <NavLink href="/posts">Posty</NavLink>
+            {user && <NavLink href="/profile">Profil</NavLink>}
             {role === 'admin' && <NavLink href="/admin">Admin</NavLink>}
 
             <div className="my-2 border-t border-red-100" />
