@@ -5,6 +5,7 @@ import Navbar from '@/components/Navbar'
 import './globals.css'
 
 
+
 // ważne: wyłącz cache dla layoutu
 export const dynamic = 'force-dynamic'
 

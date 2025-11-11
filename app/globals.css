@@ -5,7 +5,7 @@
 @layer base {
   html, body { @apply bg-white text-slate-900 antialiased; }
   ::selection { @apply bg-red-600 text-white; }
-  a { @apply text-red-700 underline-offset-2 hover:underline; }
+  a { @apply text-red-700 underline-offset-2; }
 }
 
 @layer components {
