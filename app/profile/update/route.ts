@@ -5,8 +5,10 @@ export async function POST(req: NextRequest) {
   const supabase = await createSupabaseServerMutable()
 
   const { data: { user } } = await supabase.auth.getUser()
+  const origin = req.nextUrl.origin  // <-- aktualny origin (localhost lub produkcja)
+
   if (!user) {
-    return NextResponse.redirect(new URL('/auth/signin', process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000'))
+    return NextResponse.redirect(new URL('/auth/signin', origin), { status: 303 })
   }
 
   const form = await req.formData()
@@ -16,26 +18,18 @@ export async function POST(req: NextRequest) {
   const birthdateRaw = String(form.get('birthdate') || '')
   const city = String(form.get('city') || '').trim() || null
   const voivodeship = String(form.get('voivodeship') || '').trim() || null
+  const birthdate = birthdateRaw ? birthdateRaw : null  // YYYY-MM-DD
 
-  const birthdate = birthdateRaw ? birthdateRaw : null // YYYY-MM-DD
+  const updates: Record<string, any> = { username, first_name, last_name, birthdate, city, voivodeship }
 
-  const updates: Record<string, any> = {
-    username, first_name, last_name, birthdate, city, voivodeship,
-  }
-
-  const { error } = await supabase
-    .from('profiles')
-    .update(updates)
-    .eq('id', user.id)
+  const { error } = await supabase.from('profiles').update(updates).eq('id', user.id)
 
   if (error) {
     // 23505 = unique_violation (np. zajęty username)
     const code = (error as any).code
     const reason = code === '23505' ? 'username_taken' : 'save_failed'
-    const url = new URL(`/profile?e=${reason}`, process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000')
-    return NextResponse.redirect(url)
+    return NextResponse.redirect(new URL(`/profile?e=${reason}`, origin), { status: 303 })
   }
 
-  const url = new URL('/profile?ok=1', process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000')
-  return NextResponse.redirect(url, { status: 303 })
+  return NextResponse.redirect(new URL('/profile?ok=1', origin), { status: 303 })
 }
