@@ -2,16 +2,13 @@ import './globals.css'
 import type { Metadata } from 'next'
 import { createSupabaseServer } from '@/lib/supabase/server'
 import Navbar from '@/components/Navbar'
-import './globals.css'
 
-
-
-// ważne: wyłącz cache dla layoutu
 export const dynamic = 'force-dynamic'
+export const revalidate = 0
 
 export const metadata: Metadata = {
   title: 'elo-arena',
-  description: 'Next.js + Supabase'
+  description: 'Next.js + Supabase',
 }
 
 export default async function RootLayout({ children }: { children: React.ReactNode }) {
@@ -20,8 +17,13 @@ export default async function RootLayout({ children }: { children: React.ReactNo
 
   let role: 'admin' | 'user' | null = null
   if (user) {
-    const { data: profile } = await supabase.from('profiles').select('role').eq('id', user.id).single()
-    role = (profile?.role as 'admin'|'user') ?? 'user'
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('role')
+      .eq('id', user.id)
+      .single()
+
+    role = (profile?.role as 'admin' | 'user') ?? 'user'
   }
 
   return (
