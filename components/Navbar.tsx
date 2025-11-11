@@ -48,9 +48,12 @@ export default function Navbar({ user, role }: { user: UserLite; role: Role }) {
         <div className="hidden md:flex items-center gap-3">
           {user ? (
             <>
-              <span className="rounded-full bg-red-50 px-3 py-1 text-xs font-medium text-red-700">
-                {user.email ? `Zalogowano: ${user.email}` : 'Zalogowano'}
-              </span>
+              <span
+  className="pill pill--info max-w-[320px] truncate"
+  title={user.email || undefined}
+>
+  <span className="opacity-70">Zalogowano:</span>&nbsp;{user.email ?? '—'}
+</span>
               <form action="/auth/signout" method="post">
                 <button className="pill pill--secondary" aria-label="Wyloguj">
                   Wyloguj
@@ -94,15 +97,21 @@ export default function Navbar({ user, role }: { user: UserLite; role: Role }) {
             <div className="my-2 border-t border-red-100" />
 
             {user ? (
-              <div className="flex items-center justify-between">
-                <span className="text-sm text-red-700">{user.email}</span>
-                <form action="/auth/signout" method="post">
-                  <button className="pill pill--secondary">
-                    Wyloguj <Arrow />
-                  </button>
-                </form>
-              </div>
-            ) : (
+  <div className="flex items-center justify-between">
+    <span
+  className="pill pill--info max-w-[100%] truncate"
+  title={user.email || undefined}
+>
+  <span className="opacity-70">Zalogowano:</span>&nbsp;{user.email ?? '—'}
+</span>
+
+    <form action="/auth/signout" method="post">
+      <button className="pill pill--secondary">
+        Wyloguj <Arrow />
+      </button>
+    </form>
+  </div>
+) : (
               <div className="flex items-center gap-2">
                 <Link href="/auth/signin" className="flex-1 text-center pill pill--secondary">
                   ZALOGUJ <Arrow />
