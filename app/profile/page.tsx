@@ -1,8 +1,28 @@
 import { redirect } from 'next/navigation'
 import { createSupabaseServer } from '@/lib/supabase/server'
 
-// Uwaga: searchParams jest Promisem
+// Next 15+: searchParams jest Promisem
 type SearchParams = Promise<Record<string, string | string[] | undefined>>
+
+// Dokładnie te same wartości, co w ENUM w bazie:
+const VOIVODESHIPS = [
+  'Dolnośląskie',
+  'Kujawsko-Pomorskie',
+  'Lubelskie',
+  'Lubuskie',
+  'Łódzkie',
+  'Małopolskie',
+  'Mazowieckie',
+  'Opolskie',
+  'Podkarpackie',
+  'Podlaskie',
+  'Pomorskie',
+  'Śląskie',
+  'Świętokrzyskie',
+  'Warmińsko-Mazurskie',
+  'Wielkopolskie',
+  'Zachodniopomorskie',
+] as const
 
 export default async function ProfilePage({
   searchParams,
@@ -36,7 +56,13 @@ export default async function ProfilePage({
       )}
       {err && (
         <div className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
-          {err === 'username_taken' ? 'Login zajęty.' : 'Nie udało się zapisać. Spróbuj ponownie.'}
+          {err === 'username_taken'
+            ? 'Login zajęty.'
+            : err === 'voiv_required'
+            ? 'Wybierz województwo.'
+            : err === 'voiv_invalid'
+            ? 'Nieprawidłowa wartość województwa.'
+            : 'Nie udało się zapisać. Spróbuj ponownie.'}
         </div>
       )}
 
@@ -74,9 +100,34 @@ export default async function ProfilePage({
             <label className="block text-sm font-medium text-slate-700">Miasto</label>
             <input name="city" defaultValue={profile?.city ?? ''} className="mt-1 w-full rounded border px-3 py-2" />
           </div>
+
+          {/* SELECT województwa – wymagany, dokładnie wartości z ENUM */}
           <div>
             <label className="block text-sm font-medium text-slate-700">Województwo</label>
-            <input name="voivodeship" defaultValue={profile?.voivodeship ?? ''} className="mt-1 w-full rounded border px-3 py-2" />
+            <select
+              name="voivodeship"
+              defaultValue={profile?.voivodeship ?? ''}
+              className="mt-1 w-full rounded border px-3 py-2 bg-white"
+              required
+            >
+              <option value="" disabled>— wybierz —</option>
+              <option>Dolnośląskie</option>
+              <option>Kujawsko-Pomorskie</option>
+              <option>Lubelskie</option>
+              <option>Lubuskie</option>
+              <option>Łódzkie</option>
+              <option>Małopolskie</option>
+              <option>Mazowieckie</option>
+              <option>Opolskie</option>
+              <option>Podkarpackie</option>
+              <option>Podlaskie</option>
+              <option>Pomorskie</option>
+              <option>Śląskie</option>
+              <option>Świętokrzyskie</option>
+              <option>Warmińsko-Mazurskie</option>
+              <option>Wielkopolskie</option>
+              <option>Zachodniopomorskie</option>
+  </select>
           </div>
         </div>
 
