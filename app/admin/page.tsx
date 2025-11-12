@@ -32,11 +32,12 @@ export default async function AdminPage() {
       <section className="space-y-3">
         <h2 className="text-lg font-semibold">Turnieje</h2>
         <div className="flex flex-wrap gap-3">
-          <Link href="/turniej" className="pill pill--secondary">Lista turniejów</Link>
+          <Link href="/admin/turniej" className="pill pill--secondary">Lista turniejów</Link>
           <Link href="/turniej/new" className="pill pill--primary">Dodaj turniej</Link>
 
         </div>
       </section>
+      
     </main>
   )
 }
