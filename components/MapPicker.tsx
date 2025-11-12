@@ -1,7 +1,6 @@
 'use client'
 
 import { useEffect, useRef, useState } from 'react'
-import Script from 'next/script'
 
 type Props = {
   targetLatId: string
@@ -9,6 +8,10 @@ type Props = {
   lat?: number | null
   lng?: number | null
   buttonLabel?: string
+}
+
+function mapsReady() {
+  return typeof window !== 'undefined' && !!(window as any).google?.maps
 }
 
 export default function MapPicker({
@@ -19,51 +22,71 @@ export default function MapPicker({
   buttonLabel = 'Ustaw pinezkę',
 }: Props) {
   const [open, setOpen] = useState(false)
-  const [apiReady, setApiReady] = useState(false)
-  const [apiError, setApiError] = useState<string | null>(null)
+  const [ready, setReady] = useState(mapsReady())
+  const [failed, setFailed] = useState(false)
 
   const mapRef = useRef<HTMLDivElement>(null)
   const markerRef = useRef<google.maps.Marker | null>(null)
   const gmapRef = useRef<google.maps.Map | null>(null)
 
   const defaultCenter = {
-    lat: typeof lat === 'number' ? lat : 50.0620,
-    lng: typeof lng === 'number' ? lng : 19.9371,
+    lat: typeof lat === 'number' ? lat : 52.2297,
+    lng: typeof lng === 'number' ? lng : 21.0122,
   }
 
+  // Czekamy aż google.maps będzie dostępne (polling do 5s)
   useEffect(() => {
-    if (!open || !apiReady || !mapRef.current) return
+    if (!open || ready) return
+    let tries = 0
+    const t = setInterval(() => {
+      tries++
+      const ok = mapsReady()
+      setReady(ok)
+      if (ok || tries > 50) { // ~5s
+        clearInterval(t)
+        if (!ok) setFailed(true)
+      }
+    }, 100)
+    return () => clearInterval(t)
+  }, [open, ready])
 
-    try {
-      const map = new google.maps.Map(mapRef.current, {
-        center: defaultCenter,
-        zoom: 12,
-      })
-      gmapRef.current = map
+  // Inicjalizacja mapy po otwarciu i ready
+  useEffect(() => {
+    if (!open || !ready || !mapRef.current) return
+    // Poczekaj aż modal wyrenderuje wymiary
+    const raf = requestAnimationFrame(() => {
+      try {
+        const map = new google.maps.Map(mapRef.current!, {
+          center: defaultCenter,
+          zoom: 12,
+        })
+        gmapRef.current = map
 
-      const marker = new google.maps.Marker({
-        position: defaultCenter,
-        map,
-        draggable: true,
-      })
-      markerRef.current = marker
+        const marker = new google.maps.Marker({
+          position: defaultCenter,
+          map,
+          draggable: true,
+        })
+        markerRef.current = marker
 
-      map.addListener('click', (e: google.maps.MapMouseEvent) => {
-        const pos = e.latLng
-        if (pos) marker.setPosition(pos)
-      })
-    } catch (e) {
-      setApiError('Nie można zainicjować mapy (sprawdź klucz API/Console).')
-      console.error(e)
-    }
-
+        map.addListener('click', (e: google.maps.MapMouseEvent) => {
+          const pos = e.latLng
+          if (pos) marker.setPosition(pos)
+        })
+      } catch (e) {
+        setFailed(true)
+        // eslint-disable-next-line no-console
+        console.error('Map init error', e)
+      }
+    })
     return () => {
+      cancelAnimationFrame(raf)
       markerRef.current?.setMap(null)
       markerRef.current = null
       gmapRef.current = null
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open, apiReady])
+  }, [open, ready])
 
   function confirmPick() {
     const pos = markerRef.current?.getPosition()
@@ -76,48 +99,56 @@ export default function MapPicker({
     setOpen(false)
   }
 
-  const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY
-  const hasKey = Boolean(apiKey)
-
   return (
     <>
-      {hasKey && (
-        <Script
-          id="google-maps"
-          src={`https://maps.googleapis.com/maps/api/js?key=${apiKey}`}
-          strategy="afterInteractive"
-          onLoad={() => setApiReady(true)}
-          onError={() => setApiError('Nie udało się załadować Google Maps JS API (sprawdź klucz/referrer).')}
-        />
-      )}
-
-      <button type="button" className="pill pill--secondary" onClick={() => setOpen(true)}>
+      <button type="button" className="pill pill--secondary" onClick={() => { setFailed(false); setOpen(true) }}>
         {buttonLabel}
       </button>
 
       {open && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/40 p-4">
-          <div className="w-full max-w-3xl rounded-lg bg-white shadow-lg">
+          <div className="w-full max-w-3xl overflow-hidden rounded-lg bg-white shadow-lg">
             <div className="flex items-center justify-between border-b px-4 py-3">
               <h3 className="font-semibold">Wybierz lokalizację</h3>
               <button type="button" className="text-sm underline" onClick={() => setOpen(false)}>Zamknij</button>
             </div>
 
-            {!hasKey && (
+            {/* Stan: brak klucza */}
+            {!process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY && (
               <div className="p-4 text-sm text-red-700">
-                Brak zmiennej <code>NEXT_PUBLIC_GOOGLE_MAPS_API_KEY</code> w środowisku.
+                Brak <code>NEXT_PUBLIC_GOOGLE_MAPS_API_KEY</code>. Dodaj do .env.local i zrestartuj dev server.
               </div>
             )}
 
-            {apiError && (
-              <div className="p-4 text-sm text-red-700">{apiError}</div>
+            {/* Stan: ładowanie SDK */}
+            {!ready && !failed && (
+              <div className="flex h-[60vh] w-full items-center justify-center text-sm text-slate-600">
+                Ładowanie mapy…
+              </div>
             )}
 
-            <div className="h-[60vh] w-full" ref={mapRef} />
+            {/* Stan: błąd */}
+            {failed && (
+              <div className="flex h-[60vh] w-full flex-col items-center justify-center gap-2 p-4 text-center text-sm text-red-700">
+                Nie udało się załadować mapy. Sprawdź klucz/referrer i wtyczki blokujące.
+                <button
+                  type="button"
+                  className="pill pill--secondary"
+                  onClick={() => { setReady(mapsReady()); setFailed(false) }}
+                >
+                  Spróbuj ponownie
+                </button>
+              </div>
+            )}
+
+            {/* Mapa */}
+            {ready && !failed && (
+              <div className="h-[60vh] w-full" ref={mapRef} />
+            )}
 
             <div className="flex justify-end gap-2 border-t px-4 py-3">
               <button type="button" className="pill pill--secondary" onClick={() => setOpen(false)}>Anuluj</button>
-              <button type="button" className="pill pill--primary" onClick={confirmPick} disabled={!apiReady}>
+              <button type="button" className="pill pill--primary" onClick={confirmPick} disabled={!ready || failed}>
                 Ustaw
               </button>
             </div>
