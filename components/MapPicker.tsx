@@ -27,8 +27,8 @@ export default function MapPicker({
   const gmapRef = useRef<google.maps.Map | null>(null)
 
   const defaultCenter = {
-    lat: typeof lat === 'number' ? lat : 52.2297,
-    lng: typeof lng === 'number' ? lng : 21.0122,
+    lat: typeof lat === 'number' ? lat : 50.0620,
+    lng: typeof lng === 'number' ? lng : 19.9371,
   }
 
   useEffect(() => {
@@ -48,7 +48,7 @@ export default function MapPicker({
       })
       markerRef.current = marker
 
-      map.addListener('click', (e) => {
+      map.addListener('click', (e: google.maps.MapMouseEvent) => {
         const pos = e.latLng
         if (pos) marker.setPosition(pos)
       })
