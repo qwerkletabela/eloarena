@@ -40,7 +40,7 @@ export default function Navbar({ user, role }: { user: UserLite; role: Role }) {
         </Link>
 
         <div className="hidden md:flex items-center gap-1">
-          <NavLink href="/">Strona główna</NavLink>
+          
           <NavLink href="/turniej">Turnieje</NavLink>
           {user && <NavLink href="/profile">Profil</NavLink>}
           {role === 'admin' && <NavLink href="/admin">Admin</NavLink>}
@@ -91,7 +91,7 @@ export default function Navbar({ user, role }: { user: UserLite; role: Role }) {
       {open && (
         <div className="md:hidden border-t border-red-200 bg-white">
           <div className="mx-auto flex max-w-6xl flex-col gap-2 px-4 py-3">
-            <NavLink href="/">Strona główna</NavLink>
+            
             <NavLink href="/turniej">Turnieje</NavLink>
             {user && <NavLink href="/profile">Profil</NavLink>}
             {role === 'admin' && <NavLink href="/admin">Admin</NavLink>}
