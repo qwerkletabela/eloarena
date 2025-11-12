@@ -1,7 +1,9 @@
 import './globals.css'
 import type { Metadata } from 'next'
+import LoadGoogleMaps from '@/components/LoadGoogleMaps'
 import { createSupabaseServer } from '@/lib/supabase/server'
 import Navbar from '@/components/Navbar'
+
 
 export const dynamic = 'force-dynamic'
 export const revalidate = 0
@@ -46,6 +48,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
       <body className="min-h-dvh antialiased">
         <Navbar user={user ? { id: user.id, email: user.email } : null} role={role} />
         {children}
+        <LoadGoogleMaps />
       </body>
     </html>
   )
