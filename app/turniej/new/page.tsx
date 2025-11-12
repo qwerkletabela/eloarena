@@ -1,5 +1,6 @@
 import { redirect } from 'next/navigation'
 import { createSupabaseServer } from '@/lib/supabase/server'
+import MapPicker from '@/components/MapPicker'   // <— NOWE
 
 type SearchParams = Promise<Record<string, string | string[] | undefined>>
 
@@ -21,7 +22,11 @@ export default async function NewTurniejPage({ searchParams }: { searchParams: S
     <main className="mx-auto max-w-2xl p-6 space-y-6">
       <h1 className="text-2xl font-semibold">Dodaj turniej</h1>
 
-      {ok && <div className="rounded-md border border-green-200 bg-green-50 px-3 py-2 text-sm text-green-700">Turniej został utworzony.</div>}
+      {ok && (
+        <div className="rounded-md border border-green-200 bg-green-50 px-3 py-2 text-sm text-green-700">
+          Turniej został utworzony.
+        </div>
+      )}
       {err && (
         <div className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
           {{
@@ -84,14 +89,24 @@ export default async function NewTurniejPage({ searchParams }: { searchParams: S
           </div>
         </div>
 
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+        {/* NOWE: LAT/LNG + guzik „Dodaj pinezkę” */}
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
           <div>
-            <label className="block text-sm font-medium">Szerokość geogr. (lat)</label>
-            <input type="number" step="any" name="lat" className="mt-1 w-full rounded border px-3 py-2" placeholder="np. 52.2297" />
+            <label className="block text-sm font-medium">Lat</label>
+            <input id="lat" name="lat" className="mt-1 w-full rounded border px-3 py-2" placeholder="np. 52.2297" />
           </div>
           <div>
-            <label className="block text-sm font-medium">Długość geogr. (lng)</label>
-            <input type="number" step="any" name="lng" className="mt-1 w-full rounded border px-3 py-2" placeholder="np. 21.0122" />
+            <label className="block text-sm font-medium">Lng</label>
+            <input id="lng" name="lng" className="mt-1 w-full rounded border px-3 py-2" placeholder="np. 21.0122" />
+          </div>
+          <div className="flex items-end">
+            <MapPicker
+              targetLatId="lat"
+              targetLngId="lng"
+              lat={null}
+              lng={null}
+              buttonLabel="Dodaj pinezkę"
+            />
           </div>
         </div>
 
