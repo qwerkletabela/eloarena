@@ -1,6 +1,7 @@
 import { redirect } from 'next/navigation'
 import { createSupabaseServer } from '@/lib/supabase/server'
 import MapPicker from '@/components/MapPicker'   // <— NOWE
+import AutoHide from '@/components/AutoHide'
 
 type SearchParams = Promise<Record<string, string | string[] | undefined>>
 
@@ -23,11 +24,14 @@ export default async function NewTurniejPage({ searchParams }: { searchParams: S
       <h1 className="text-2xl font-semibold">Dodaj turniej</h1>
 
       {ok && (
+        <AutoHide>
         <div className="rounded-md border border-green-200 bg-green-50 px-3 py-2 text-sm text-green-700">
           Turniej został utworzony.
         </div>
+        </AutoHide>
       )}
       {err && (
+        <AutoHide>
         <div className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
           {{
             invalid_input: 'Nieprawidłowe dane formularza.',
@@ -37,6 +41,7 @@ export default async function NewTurniejPage({ searchParams }: { searchParams: S
             url_invalid: 'Link musi zaczynać się od http(s)://',
           }[err] ?? 'Nie udało się zapisać.'}
         </div>
+        </AutoHide>
       )}
 
       <form action="/turniej/create" method="post" className="space-y-5">

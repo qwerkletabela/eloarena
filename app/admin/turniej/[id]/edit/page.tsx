@@ -2,6 +2,7 @@ import { redirect } from 'next/navigation'
 import { createSupabaseServer } from '@/lib/supabase/server'
 import Link from 'next/link'
 import MapPicker from '@/components/MapPicker'
+import AutoHide from '@/components/AutoHide'
 
 export const dynamic = 'force-dynamic'
 export const revalidate = 0
@@ -36,8 +37,13 @@ export default async function EditTurniejPage({ params, searchParams }: { params
         <Link href="/admin/turniej" className="pill pill--secondary">← Lista</Link>
       </div>
 
-      {ok && <div className="rounded-md border border-green-200 bg-green-50 px-3 py-2 text-sm text-green-700">Zapisano.</div>}
-      {err && <div className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">Nie udało się zapisać.</div>}
+      {ok && 
+      <AutoHide>
+        <div className="rounded-md border border-green-200 bg-green-50 px-3 py-2 text-sm text-green-700">Zapisano.</div>
+        </AutoHide>}
+      {err && 
+      <AutoHide><div className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">Nie udało się zapisać.</div>
+      </AutoHide>}
 
       <form action={`/admin/turniej/${t.id}/update`} method="post" className="space-y-5">
         <div>
