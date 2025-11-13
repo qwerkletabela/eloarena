@@ -68,10 +68,7 @@ export default async function NewTurniejPage({ searchParams }: { searchParams: S
         </div>
 
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-          <div className="sm:col-span-2">
-            <label className="block text-sm font-medium">ID arkusza (opcjonalnie)</label>
-            <input name="gsheet_id" className="mt-1 w-full rounded border px-3 py-2" placeholder="np. 1AbCDeFg..." />
-          </div>
+          
           <div>
             <label className="block text-sm font-medium">Nazwa karty (opcjonalnie)</label>
             <input name="arkusz_nazwa" className="mt-1 w-full rounded border px-3 py-2" placeholder="np. Lista" />
