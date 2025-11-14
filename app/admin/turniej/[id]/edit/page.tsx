@@ -71,12 +71,21 @@ function colLetterToIndex(letter: string) {
   return idx - 1
 }
 
-/** Normalizacja jak w SQL (przybliżenie): lower + usunięcie diakrytyków + 1 spacja */
+/** Twarde odogonkowienie polskich znaków (ł→l itd.) */
+function unaccentPl(s: string) {
+  const map: Record<string, string> = {
+    'ą':'a','ć':'c','ę':'e','ł':'l','ń':'n','ó':'o','ś':'s','ź':'z','ż':'z',
+    'Ą':'A','Ć':'C','Ę':'E','Ł':'L','Ń':'N','Ó':'O','Ś':'S','Ź':'Z','Ż':'Z'
+  }
+  return s.replace(/[ĄĆĘŁŃÓŚŹŻąćęłńóśźż]/g, ch => map[ch] ?? ch)
+}
+
+/** Normalizacja jak w SQL public.norm_txt: unaccentPL + lower + NFD bez diakryt. + pojedyncze spacje */
 function normTxt(s: string) {
-  return s
+  return unaccentPl(s)
     .toLowerCase()
-    .normalize('NFD')
-    .replace(/\p{Diacritic}/gu, '')
+    .normalize('NFD')              // rozbij resztę akcentów (np. é)
+    .replace(/[\u0300-\u036f]/g, '') // usuń znaki łączące (diakrytyki)
     .replace(/\s+/g, ' ')
     .trim()
 }
@@ -286,7 +295,7 @@ export default async function EditTurniejPage({ params, searchParams }: { params
 
       {/* --- Podgląd z arkusza (na stronie) --- */}
       <section className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Kolumna 1: lista uczestników (v_wyniki) */}
+        {/* Kolumna 1: lista uczestników (z bazy) */}
         <div className="space-y-2">
           <h3 className="text-base font-semibold">Lista uczestników (z bazy)</h3>
           <div className="overflow-x-auto rounded border">
