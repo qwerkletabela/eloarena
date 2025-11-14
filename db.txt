@@ -261,3 +261,138 @@ with check (public.is_admin());
 
 -- upewnij się, że is_admin jest dostępne dla ról
 grant execute on function public.is_admin() to anon, authenticated;
+
+
+
+
+
+------------tabela gracz---------------------
+
+
+
+-- ================= DEPENDENCJE (IMMUTABLE) =================
+create extension if not exists unaccent with schema public;
+
+create or replace function public.unaccent_imm(t text)
+returns text
+language sql
+immutable
+as $$
+  select public.unaccent(t)
+$$;
+
+create or replace function public.norm_txt(t text)
+returns text
+language sql
+immutable
+as $$
+  select
+    trim(
+      regexp_replace(
+        public.unaccent_imm(lower(coalesce(t, ''))),
+        '\s+',
+        ' ',
+        'g'
+      )
+    )
+$$;
+
+-- ===================== TABELA GRACZ ========================
+create table if not exists public.gracz (
+  id               uuid primary key default gen_random_uuid(),
+
+  imie             text not null,
+  nazwisko         text not null,
+  rok_urodzenia    int,
+  miasto           text,
+  wojewodztwo      text,
+
+  ranking          numeric(10,4) not null default 1200.0000,
+  games_played     int not null default 0,
+  wins             int not null default 0,
+  last_played_at   timestamptz,
+
+  created_at       timestamptz not null default now(),
+  updated_at       timestamptz not null default now(),
+
+  constraint gracz_rok_urodzenia_chk
+    check (rok_urodzenia is null or rok_urodzenia between 1900 and extract(year from now())::int),
+  constraint gracz_nonnegatives_chk
+    check (games_played >= 0 and wins >= 0),
+  constraint gracz_ranking_chk
+    check (ranking >= 0)
+);
+
+-- kolumny generowane (normalizacja do wyszukiwania/unikatu)
+do $$
+begin
+  if not exists (
+    select 1 from information_schema.columns
+    where table_schema='public' and table_name='gracz' and column_name='nazwisko_norm'
+  ) then
+    alter table public.gracz
+      add column nazwisko_norm text generated always as (public.norm_txt(nazwisko)) stored;
+  end if;
+
+  if not exists (
+    select 1 from information_schema.columns
+    where table_schema='public' and table_name='gracz' and column_name='fullname_norm'
+  ) then
+    alter table public.gracz
+      add column fullname_norm text generated always as (public.norm_txt(imie || ' ' || nazwisko)) stored;
+  end if;
+end $$;
+
+-- unikat po fullname_norm
+do $$
+begin
+  if not exists (
+    select 1 from pg_constraint
+    where conrelid = 'public.gracz'::regclass
+      and conname  = 'uniq_gracz_fullname_norm'
+  ) then
+    alter table public.gracz
+      add constraint uniq_gracz_fullname_norm unique (fullname_norm);
+  end if;
+end $$;
+
+-- indeksy pomocnicze
+create index if not exists idx_gracz_nazwisko_norm on public.gracz (nazwisko_norm);
+create index if not exists idx_gracz_last_played   on public.gracz (last_played_at desc);
+
+-- trigger updated_at
+create or replace function public.set_gracz_updated_at()
+returns trigger
+language plpgsql
+as $$
+begin
+  new.updated_at = now();
+  return new;
+end;
+$$;
+
+drop trigger if exists set_gracz_updated_at on public.gracz;
+create trigger set_gracz_updated_at
+before update on public.gracz
+for each row execute procedure public.set_gracz_updated_at();
+
+-- ============== RLS: odczyt publiczny, zapis tylko admin =================
+alter table public.gracz enable row level security;
+
+drop policy if exists "gracz: select public" on public.gracz;
+drop policy if exists "gracz: write admin"  on public.gracz;
+
+create policy "gracz: select public"
+on public.gracz
+for select
+to anon, authenticated
+using (true);
+
+create policy "gracz: write admin"
+on public.gracz
+for all
+to authenticated
+using (public.is_admin())
+with check (public.is_admin());
+
+grant execute on function public.is_admin() to anon, authenticated;

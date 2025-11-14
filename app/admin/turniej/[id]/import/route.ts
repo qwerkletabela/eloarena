@@ -2,13 +2,13 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createSupabaseServerMutable } from '@/lib/supabase/server-mutable'
 
-type RowT = {
+type TurniejRow = {
   id: string
   nazwa: string | null
   gsheet_url: string | null
   arkusz_nazwa: string | null
-  kolumna_nazwisk: string | null // np. "B" (pełne imię+nazwisko w jednej kolumnie)
-  pierwszy_wiersz_z_nazwiskiem: number | null // np. 2
+  kolumna_nazwisk: string | null
+  pierwszy_wiersz_z_nazwiskiem: number | null
 }
 
 /** Buduje URL CSV z gsheet_url i (opcjonalnie) nazwą karty. */
@@ -17,12 +17,12 @@ function buildCsvUrl(sheetUrl: string, sheetName?: string | null) {
   const id = m?.[1]
   if (!id) return null
 
-  // Jeśli podano nazwę karty (nie liczbowy gid) – użyj gviz CSV
+  // Jeśli jest nazwa karty – użyj gviz CSV
   if (sheetName && !/^\d+$/.test(sheetName)) {
     return `https://docs.google.com/spreadsheets/d/${id}/gviz/tq?tqx=out:csv&sheet=${encodeURIComponent(sheetName)}`
   }
 
-  // Jeżeli w URL już jest gid – użyj go
+  // Jeśli w URL jest gid – użyj go
   const gidMatch = sheetUrl.match(/[?&]gid=(\d+)/)
   const gid = gidMatch?.[1]
   if (gid) return `https://docs.google.com/spreadsheets/d/${id}/export?format=csv&gid=${gid}`
@@ -42,26 +42,19 @@ function colLetterToIndex(letter: string) {
   return idx - 1
 }
 
-/** Prosty parser CSV: radzi sobie z cudzysłowami i separatorami , lub ; */
+/** Prosty parser CSV: wspiera cudzysłowy i separator , lub ; */
 function parseCsv(text: string): string[][] {
-  // heurystyka separatora: jeśli w pierwszej linii więcej ; niż , to ;
   const firstLine = text.split(/\r?\n/)[0] ?? ''
   const sep = (firstLine.match(/;/g)?.length ?? 0) > (firstLine.match(/,/g)?.length ?? 0) ? ';' : ','
   const rows: string[][] = []
   let i = 0, field = '', row: string[] = [], inQuotes = false
-
   while (i < text.length) {
     const ch = text[i]
     if (inQuotes) {
       if (ch === '"') {
-        if (text[i + 1] === '"') {
-          field += '"'; i += 2; continue
-        } else {
-          inQuotes = false; i++; continue
-        }
-      } else {
-        field += ch; i++; continue
-      }
+        if (text[i + 1] === '"') { field += '"'; i += 2; continue }
+        inQuotes = false; i++; continue
+      } else { field += ch; i++; continue }
     } else {
       if (ch === '"') { inQuotes = true; i++; continue }
       if (ch === sep) { row.push(field); field = ''; i++; continue }
@@ -74,13 +67,13 @@ function parseCsv(text: string): string[][] {
   return rows
 }
 
-/** Rozbija pełne imię+nazwisko na {imie, nazwisko}. Ostatnie słowo → nazwisko. */
+/** Rozbija „Imię Nazwisko” na { imie, nazwisko }. Ostatnie słowo = nazwisko. */
 function splitFullName(full: string) {
   const clean = full.replace(/\s+/g, ' ').trim()
   if (!clean) return null
   const parts = clean.split(' ')
   const nazwisko = parts.pop()!
-  const imie = parts.join(' ') || ''
+  const imie = parts.join(' ')
   if (!imie || !nazwisko) return null
   return { imie, nazwisko }
 }
@@ -90,106 +83,96 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string
   const origin = req.nextUrl.origin
   const supabase = await createSupabaseServerMutable()
 
-  // 0) auth + admin
+  // auth + admin
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return NextResponse.redirect(new URL('/auth/signin', origin), { status: 303 })
   const { data: isAdmin } = await supabase.rpc('is_admin')
   if (!isAdmin) return NextResponse.redirect(new URL('/', origin), { status: 303 })
 
-  // 1) pobierz ustawienia turnieju
+  // pobierz konfigurację turnieju
   const { data: t, error: terr } = await supabase
     .from('turniej')
     .select('id, nazwa, gsheet_url, arkusz_nazwa, kolumna_nazwisk, pierwszy_wiersz_z_nazwiskiem')
     .eq('id', id)
-    .single<RowT>()
+    .single<TurniejRow>()
 
   if (terr || !t) {
-    const url = new URL(`/admin/turniej/${id}/edit?e=no_tournament`, origin)
-    return NextResponse.redirect(url, { status: 303 })
+    console.error('[import] no_tournament', terr)
+    return NextResponse.redirect(new URL(`/admin/turniej/${id}/edit?e=no_tournament`, origin), { status: 303 })
   }
   if (!t.gsheet_url || !t.kolumna_nazwisk || !t.pierwszy_wiersz_z_nazwiskiem) {
-    const url = new URL(`/admin/turniej/${id}/edit?e=missing_sheet_cfg`, origin)
-    return NextResponse.redirect(url, { status: 303 })
+    return NextResponse.redirect(new URL(`/admin/turniej/${id}/edit?e=missing_sheet_cfg`, origin), { status: 303 })
   }
 
-  // 2) zbuduj URL CSV i pobierz treść
   const csvUrl = buildCsvUrl(t.gsheet_url, t.arkusz_nazwa)
   if (!csvUrl) {
-    const url = new URL(`/admin/turniej/${id}/edit?e=bad_sheet_url`, origin)
-    return NextResponse.redirect(url, { status: 303 })
+    return NextResponse.redirect(new URL(`/admin/turniej/${id}/edit?e=bad_sheet_url`, origin), { status: 303 })
   }
 
+  // pobierz CSV
   let csvText = ''
   try {
     const resp = await fetch(csvUrl, { headers: { 'cache-control': 'no-cache' } })
-    if (!resp.ok) throw new Error(`csv fetch ${resp.status}`)
+    if (!resp.ok) {
+      console.error('[import] fetch_failed', resp.status, await resp.text().catch(() => ''))
+      return NextResponse.redirect(new URL(`/admin/turniej/${id}/edit?e=fetch_failed&s=${resp.status}`, origin), { status: 303 })
+    }
     csvText = await resp.text()
   } catch (e) {
-    const url = new URL(`/admin/turniej/${id}/edit?e=fetch_failed`, origin)
-    return NextResponse.redirect(url, { status: 303 })
+    console.error('[import] fetch_error', e)
+    return NextResponse.redirect(new URL(`/admin/turniej/${id}/edit?e=fetch_failed`, origin), { status: 303 })
   }
 
-  // 3) CSV -> wiersze -> wybór kolumny
+  // CSV -> rows -> wybór kolumny
   const rows = parseCsv(csvText)
   const colIdx = colLetterToIndex(t.kolumna_nazwisk!)
   if (colIdx == null) {
-    const url = new URL(`/admin/turniej/${id}/edit?e=col_invalid`, origin)
-    return NextResponse.redirect(url, { status: 303 })
+    return NextResponse.redirect(new URL(`/admin/turniej/${id}/edit?e=col_invalid`, origin), { status: 303 })
   }
 
-  const startAt = Math.max(1, t.pierwszy_wiersz_z_nazwiskiem || 1) // 1-based w UI
+  const startAt = Math.max(1, t.pierwszy_wiersz_z_nazwiskiem || 1) // 1-based
   const picked = rows.slice(startAt - 1).map(r => (r[colIdx] || '').trim()).filter(Boolean)
+  if (!picked.length) {
+    console.warn('[import] empty_after_parse', { startAt, colIdx, totalRows: rows.length })
+    return NextResponse.redirect(new URL(`/admin/turniej/${id}/edit?e=empty_after_parse`, origin), { status: 303 })
+  }
 
-  // 4) przygotuj upsert do gracz
-  const grPayload = []
+  // przygotuj payload graczy
+  const grPayload: { imie: string; nazwisko: string }[] = []
   for (const full of picked) {
     const s = splitFullName(full)
     if (!s) continue
-    grPayload.push({
-      imie: s.imie,
-      nazwisko: s.nazwisko,
-      // reszta pól opcjonalnie null
-    })
+    grPayload.push({ imie: s.imie, nazwisko: s.nazwisko })
   }
   if (!grPayload.length) {
-    const url = new URL(`/admin/turniej/${id}/edit?e=empty_after_parse`, origin)
-    return NextResponse.redirect(url, { status: 303 })
+    return NextResponse.redirect(new URL(`/admin/turniej/${id}/edit?e=empty_after_parse`, origin), { status: 303 })
   }
 
-  // 5) upsert graczy po unikalnym fullname_norm (generowana – ale conflict działa)
-  //    Uwaga: Supabase upsert przyjmie conflict po nazwie constraintu albo kolumny; tu użyjemy kolumny
+  // upsert graczy po kolumnie unikatowej (fullname_norm)
   const { data: inserted, error: gerr } = await supabase
     .from('gracz')
-    .upsert(grPayload, { onConflict: 'fullname_norm' })
-    .select('id, imie, nazwisko')
+    .upsert(grPayload, { onConflict: 'fullname_norm' }) // <- poprawka
+    .select('id')
 
   if (gerr) {
-    const url = new URL(`/admin/turniej/${id}/edit?e=gracz_upsert_failed`, origin)
-    return NextResponse.redirect(url, { status: 303 })
+    console.error('[import] gracz_upsert_failed', gerr)
+    return NextResponse.redirect(new URL(`/admin/turniej/${id}/edit?e=gracz_upsert_failed`, origin), { status: 303 })
   }
 
-  // 6) pobierz ID wszystkich graczy odpowiadających picked (by uniknąć case/ogonki problemów)
-  //    Prosto: po imie+nazwisko które właśnie upsertowaliśmy:
-  const names = grPayload.map(x => `${x.imie} ${x.nazwisko}`)
-  // (jeśli listy duże, można dzielić na paczki)
-  const { data: allMatched } = await supabase
-    .from('gracz')
-    .select('id, imie, nazwisko')
-    .in('fullname_norm', names.map(n => n.toLowerCase().normalize('NFKD'))) // orientacyjnie
-  // Uproszczenie: użyjemy id z `inserted` oraz zignorujemy brakujące
-
+  // zbuduj payload do wyniki (unikat: turniej_id, gracz_id)
   const ids = new Set<string>()
   inserted?.forEach(r => ids.add(r.id))
 
-  // 7) upsert do wyniki (unikat po turniej_id, gracz_id)
   const wynikiPayload = Array.from(ids).map(gracz_id => ({ turniej_id: id, gracz_id }))
   if (wynikiPayload.length) {
-    await supabase
+    const { error: werr } = await supabase
       .from('wyniki')
       .upsert(wynikiPayload, { onConflict: 'turniej_id,gracz_id' })
+    if (werr) {
+      console.error('[import] wyniki_upsert_failed', werr)
+      return NextResponse.redirect(new URL(`/admin/turniej/${id}/edit?e=wyniki_upsert_failed`, origin), { status: 303 })
+    }
   }
 
-  // 8) sukces
-  const url = new URL(`/admin/turniej/${id}/edit?ok=1`, origin)
-  return NextResponse.redirect(url, { status: 303 })
+  return NextResponse.redirect(new URL(`/admin/turniej/${id}/edit?ok=1`, origin), { status: 303 })
 }
