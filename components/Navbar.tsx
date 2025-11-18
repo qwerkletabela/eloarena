@@ -22,8 +22,8 @@ export default function Navbar({ user, role }: { user: UserLite; role: Role }) {
         href={href}
         className={[
           'relative px-3 py-2 text-sm font-medium transition',
-          'text-sky-50/80 hover:text-white',
-          active ? 'text-white' : '',
+          'text-sky-100/80 hover:text-white',
+          active ? 'text-white' : ''
         ].join(' ')}
       >
         <span>{children}</span>
@@ -34,8 +34,16 @@ export default function Navbar({ user, role }: { user: UserLite; role: Role }) {
     )
   }
 
-  const Arrow = () => (
-    <span className="inline-flex h-5 w-5 items-center justify-center rounded-full border border-sky-300/70 bg-sky-900/40 text-sky-100 ml-1">
+  const Arrow = ({ light }: { light?: boolean }) => (
+    <span
+      className={[
+        'inline-flex h-5 w-5 items-center justify-center rounded-full border text-xs ml-1',
+        light
+          ? 'border-sky-100/80 text-sky-50 bg-sky-900/40'
+          : 'border-sky-400/70 text-sky-100 bg-sky-900/40'
+      ].join(' ')}
+      aria-hidden
+    >
       <svg width="11" height="11" viewBox="0 0 24 24" fill="none">
         <path
           d="M8 5l8 7-8 7"
@@ -49,42 +57,43 @@ export default function Navbar({ user, role }: { user: UserLite; role: Role }) {
   )
 
   return (
-    <header className="sticky top-0 z-50 shadow-md">
-      {/* cienki pasek akcentu */}
+    <header className="sticky top-0 z-50">
+      {/* cienki pasek akcentu na górze */}
       <div className="h-1 w-full bg-gradient-to-r from-sky-500 via-sky-400 to-sky-500" />
 
-      <div className="bg-gradient-to-r from-sky-900 via-sky-800 to-sky-900 text-sky-50/90 backdrop-blur">
-        <nav className="mx-auto flex max-w-6xl items-center justify-between gap-4 px-4 py-3">
-          {/* brand */}
-          <Link href="/" className="flex items-center gap-2">
-            <span className="inline-flex h-7 w-7 items-center justify-center rounded-lg bg-sky-500 shadow-sm">
-              <span className="text-xs font-bold text-white">EA</span>
-            </span>
-            <span className="text-lg font-semibold tracking-tight text-sky-50">
-              elo-arena
-            </span>
-          </Link>
+      <nav className="bg-gradient-to-r from-slate-900 via-slate-950 to-slate-900 text-sky-50/90 backdrop-blur border-b border-sky-800/60 shadow-md">
+        <div className="mx-auto flex max-w-6xl items-center justify-between gap-4 px-4 py-3">
+          {/* LEWA STRONA: logo EA + linki (desktop) */}
+          <div className="flex items-center gap-4">
+            {/* logo */}
+            <Link href="/" className="flex items-center gap-2">
+              <span className="inline-flex h-7 w-7 items-center justify-center rounded-lg bg-sky-500 shadow-sm">
+                <span className="text-xs font-bold text-white">EA</span>
+              </span>
+            </Link>
 
-          {/* desktop links */}
-          <div className="hidden md:flex items-center gap-2">
-            <NavLink href="/turniej">Turnieje</NavLink>
-            {user && <NavLink href="/profile">Profil</NavLink>}
-            {role === 'admin' && <NavLink href="/admin">Admin</NavLink>}
+            {/* linki desktop */}
+            <div className="hidden md:flex items-center gap-2">
+              <NavLink href="/turniej">Turnieje</NavLink>
+              {user && <NavLink href="/profile">Profil</NavLink>}
+              {role === 'admin' && <NavLink href="/admin">Admin</NavLink>}
+            </div>
           </div>
 
-          {/* desktop right side */}
+          {/* PRAWA STRONA: logowanie / info (desktop) */}
           <div className="hidden md:flex items-center gap-4">
             {user ? (
               <>
+                {/* INFO: Zalogowano — ten sam wymiar co inputy/przycisk */}
                 <span
-                  className="max-w-xs truncate rounded-full border border-sky-600 bg-sky-800/60 px-4 py-1.5 text-xs font-medium text-sky-50 shadow-sm"
+                  className="inline-flex h-9 max-w-xs items-center truncate rounded-full border border-sky-700 bg-slate-900/70 px-4 text-xs font-medium text-sky-50 shadow-sm"
                   title={user.email || undefined}
                 >
                   <span className="opacity-70">Zalogowano:</span>&nbsp;{user.email ?? '—'}
                 </span>
                 <form action="/auth/signout" method="post">
                   <button
-                    className="inline-flex items-center gap-2 rounded-full border border-sky-400 bg-sky-700/70 px-4 py-1.5 text-xs font-semibold text-sky-50 shadow-sm transition hover:bg-sky-600 hover:border-sky-300"
+                    className="inline-flex h-9 items-center gap-2 rounded-full border border-sky-500 bg-sky-600 px-4 text-xs font-semibold text-white shadow-sm transition hover:bg-sky-500 hover:border-sky-300"
                     aria-label="Wyloguj"
                   >
                     Wyloguj
@@ -93,7 +102,7 @@ export default function Navbar({ user, role }: { user: UserLite; role: Role }) {
                 </form>
               </>
             ) : (
-              // MINI-FORMULARZ LOGOWANIA (desktop)
+              // mini formularz logowania (tej samej wysokości)
               <div className="flex flex-col items-end gap-1">
                 <form
                   action="/auth/signin/submit"
@@ -104,21 +113,21 @@ export default function Navbar({ user, role }: { user: UserLite; role: Role }) {
                     name="identifier"
                     placeholder="E-mail lub login"
                     autoComplete="username"
-                    className="h-9 rounded-md border border-sky-500/60 bg-sky-900/40 px-3 text-xs text-sky-50 placeholder-sky-300/70 outline-none ring-0 focus:border-sky-300"
+                    className="h-9 rounded-full border border-sky-600 bg-slate-900/70 px-4 text-xs text-sky-50 placeholder-sky-300/80 outline-none focus:border-sky-300"
                   />
                   <input
                     type="password"
                     name="password"
                     placeholder="Hasło"
                     autoComplete="current-password"
-                    className="h-9 rounded-md border border-sky-500/60 bg-sky-900/40 px-3 text-xs text-sky-50 placeholder-sky-300/70 outline-none ring-0 focus:border-sky-300"
+                    className="h-9 rounded-full border border-sky-600 bg-slate-900/70 px-4 text-xs text-sky-50 placeholder-sky-300/80 outline-none focus:border-sky-300"
                   />
                   <button
                     type="submit"
                     className="inline-flex h-9 items-center gap-2 rounded-full bg-sky-500 px-4 text-xs font-semibold text-white shadow-sm transition hover:bg-sky-400"
                   >
                     Zaloguj
-                    <Arrow />
+                    <Arrow light />
                   </button>
                 </form>
                 <Link
@@ -131,9 +140,9 @@ export default function Navbar({ user, role }: { user: UserLite; role: Role }) {
             )}
           </div>
 
-          {/* mobile burger */}
+          {/* burger mobile */}
           <button
-            className="md:hidden inline-flex h-10 w-10 items-center justify-center rounded-md border border-sky-500/60 bg-sky-900/40 text-sky-50 hover:bg-sky-800/80"
+            className="md:hidden inline-flex h-10 w-10 items-center justify-center rounded-md border border-sky-600 bg-slate-900/70 text-sky-50 hover:bg-slate-800"
             onClick={() => setOpen(v => !v)}
             aria-label="Otwórz menu"
             aria-expanded={open}
@@ -147,11 +156,11 @@ export default function Navbar({ user, role }: { user: UserLite; role: Role }) {
               />
             </svg>
           </button>
-        </nav>
+        </div>
 
-        {/* mobile menu */}
+        {/* menu mobile */}
         {open && (
-          <div className="md:hidden border-t border-sky-700/70 bg-sky-950/95">
+          <div className="md:hidden border-t border-sky-800 bg-slate-950/95">
             <div className="mx-auto flex max-w-6xl flex-col gap-2 px-4 py-3">
               <NavLink href="/turniej">Turnieje</NavLink>
               {user && <NavLink href="/profile">Profil</NavLink>}
@@ -162,13 +171,13 @@ export default function Navbar({ user, role }: { user: UserLite; role: Role }) {
               {user ? (
                 <div className="space-y-2">
                   <span
-                    className="block rounded-full border border-sky-600 bg-sky-900/70 px-3 py-1.5 text-xs text-sky-50"
+                    className="block rounded-full border border-sky-700 bg-slate-900/80 px-3 py-1.5 text-xs text-sky-50"
                     title={user.email || undefined}
                   >
                     <span className="opacity-70">Zalogowano:</span>&nbsp;{user.email ?? '—'}
                   </span>
                   <form action="/auth/signout" method="post">
-                    <button className="w-full rounded-full border border-sky-500 bg-sky-700 px-4 py-2 text-sm font-semibold text-sky-50 hover:bg-sky-600">
+                    <button className="w-full rounded-full border border-sky-500 bg-sky-600 px-4 py-2 text-sm font-semibold text-sky-50 hover:bg-sky-500">
                       Wyloguj
                     </button>
                   </form>
@@ -177,13 +186,13 @@ export default function Navbar({ user, role }: { user: UserLite; role: Role }) {
                 <div className="space-y-2">
                   <Link
                     href="/auth/signin"
-                    className="block rounded-full border border-sky-500 bg-sky-800 px-4 py-2 text-center text-sm font-semibold text-sky-50 hover:bg-sky-700"
+                    className="block rounded-full border border-sky-500 bg-sky-700 px-4 py-2 text-center text-sm font-semibold text-sky-50 hover:bg-sky-600"
                   >
                     Zaloguj się
                   </Link>
                   <Link
                     href="/auth/signup"
-                    className="block rounded-full border border-sky-400 bg-transparent px-4 py-2 text-center text-sm font-semibold text-sky-200 hover:bg-sky-900/70"
+                    className="block rounded-full border border-sky-400 bg-transparent px-4 py-2 text-center text-sm font-semibold text-sky-200 hover:bg-slate-900"
                   >
                     Rejestracja
                   </Link>
@@ -192,7 +201,7 @@ export default function Navbar({ user, role }: { user: UserLite; role: Role }) {
             </div>
           </div>
         )}
-      </div>
+      </nav>
     </header>
   )
 }
