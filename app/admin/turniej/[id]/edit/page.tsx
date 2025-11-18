@@ -4,6 +4,7 @@ import { createSupabaseServer } from '@/lib/supabase/server'
 import Link from 'next/link'
 import MapPicker from '@/components/MapPicker'
 import AutoHide from '@/components/AutoHide'
+import SheetPicker from '@/components/SheetPicker' // Client component
 
 export const dynamic = 'force-dynamic'
 export const revalidate = 0
@@ -37,7 +38,7 @@ type WynikRow = {
   punkty: number | null
 }
 
-/** Heurystyka separatora + prosty parser CSV (obsługa "cudzysłowów") */
+/** Parser CSV (prosty, wspiera cudzysłowy) + heurystyka separatora , / ; */
 function parseCsv(text: string): string[][] {
   const firstLine = text.split(/\r?\n/)[0] ?? ''
   const sep = (firstLine.match(/;/g)?.length ?? 0) > (firstLine.match(/,/g)?.length ?? 0) ? ';' : ','
@@ -49,7 +50,8 @@ function parseCsv(text: string): string[][] {
       if (ch === '"') {
         if (text[i + 1] === '"') { field += '"'; i += 2; continue }
         inQuotes = false; i++; continue
-      } else { field += ch; i++; continue }
+      }
+      field += ch; i++; continue
     } else {
       if (ch === '"') { inQuotes = true; i++; continue }
       if (ch === sep) { row.push(field); field = ''; i++; continue }
@@ -62,7 +64,7 @@ function parseCsv(text: string): string[][] {
   return rows
 }
 
-/** Zamiana litery kolumny (np. "B") na index 0-based */
+/** A→0, B→1, ... */
 function colLetterToIndex(letter: string) {
   const l = letter.trim().toUpperCase()
   if (!/^[A-Z]+$/.test(l)) return null
@@ -71,7 +73,7 @@ function colLetterToIndex(letter: string) {
   return idx - 1
 }
 
-/** Twarde odogonkowienie polskich znaków (ł→l itd.) */
+/** Odogonkowienie PL */
 function unaccentPl(s: string) {
   const map: Record<string, string> = {
     'ą':'a','ć':'c','ę':'e','ł':'l','ń':'n','ó':'o','ś':'s','ź':'z','ż':'z',
@@ -80,17 +82,17 @@ function unaccentPl(s: string) {
   return s.replace(/[ĄĆĘŁŃÓŚŹŻąćęłńóśźż]/g, ch => map[ch] ?? ch)
 }
 
-/** Normalizacja jak w SQL public.norm_txt: unaccentPL + lower + NFD bez diakryt. + pojedyncze spacje */
+/** Normalizacja jak w SQL public.norm_txt */
 function normTxt(s: string) {
   return unaccentPl(s)
     .toLowerCase()
-    .normalize('NFD')              // rozbij resztę akcentów (np. é)
-    .replace(/[\u0300-\u036f]/g, '') // usuń znaki łączące (diakrytyki)
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
     .replace(/\s+/g, ' ')
     .trim()
 }
 
-/** Rozbicie "Imię Nazwisko" → { imie, nazwisko } (ostatnie słowo = nazwisko) */
+/** „Imię Nazwisko” → { imie, nazwisko } */
 function splitFullName(full: string) {
   const clean = full.replace(/\s+/g, ' ').trim()
   if (!clean) return null
@@ -101,7 +103,7 @@ function splitFullName(full: string) {
   return { imie, nazwisko }
 }
 
-/** URL CSV z gsheet_url (+ opcjonalnie nazwa karty) */
+/** Budowa URL CSV z gsheet_url (+ opcjonalnie nazwa karty) */
 function buildCsvUrl(sheetUrl: string, sheetName?: string | null) {
   const m = sheetUrl.match(/spreadsheets\/d\/([a-zA-Z0-9-_]+)/)
   const id = m?.[1]
@@ -113,6 +115,15 @@ function buildCsvUrl(sheetUrl: string, sheetName?: string | null) {
   const gid = gidMatch?.[1]
   if (gid) return `https://docs.google.com/spreadsheets/d/${id}/export?format=csv&gid=${gid}`
   return `https://docs.google.com/spreadsheets/d/${id}/export?format=csv`
+}
+
+/** Usuwa BOM, NBSP, zero-width; normalizuje spacje */
+function cleanCell(s: string) {
+  return String(s ?? '')
+    .replace(/^\uFEFF/, '')
+    .replace(/[\u00A0\u200B\u200C\u200D\u2060]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
 }
 
 export default async function EditTurniejPage({ params, searchParams }: { params: Params, searchParams: SearchParams }) {
@@ -132,27 +143,25 @@ export default async function EditTurniejPage({ params, searchParams }: { params
     .select('*')
     .eq('id', id)
     .maybeSingle<TurniejRow>()
-
   if (!t) redirect('/admin/turniej')
 
-  // (opcjonalnie) lista istniejących uczestników (v_wyniki)
   const { data: uczestnicy } = await supabase
     .from('v_wyniki')
     .select('id, gracz_id, full_name, club, status, seed, miejsce, punkty')
     .eq('turniej_id', id)
     .order('miejsce', { ascending: true, nullsFirst: false })
     .order('seed', { ascending: true, nullsFirst: false })
-    .returns<WynikRow[]>()
+    .returns<WynikRow[]>() // <-- uczestnicy: WynikRow[] | null
 
-  // ---- PODGLĄD Z ARKUSZA (ta sama strona) ----
-  let previewNames: { raw: string; imie: string; nazwisko: string; norm: string }[] = []
+  // ---- PODGLĄD Z ARKUSZA ----
+  let preview: string[] = []
   let previewError: string | null = null
 
   if (t.gsheet_url && t.kolumna_nazwisk && t.pierwszy_wiersz_z_nazwiskiem) {
     try {
       const csvUrl = buildCsvUrl(t.gsheet_url, t.arkusz_nazwa)
       if (!csvUrl) throw new Error('Nieprawidłowy link do arkusza')
-      const resp = await fetch(csvUrl, { headers: { 'cache-control': 'no-cache' } })
+      const resp = await fetch(csvUrl, { cache: 'no-store' })
       if (!resp.ok) throw new Error(`Nie udało się pobrać CSV (${resp.status})`)
       const text = await resp.text()
 
@@ -160,29 +169,35 @@ export default async function EditTurniejPage({ params, searchParams }: { params
       const colIdx = colLetterToIndex(t.kolumna_nazwisk)
       if (colIdx == null) throw new Error('Nieprawidłowa kolumna (użyj litery, np. B)')
 
-      const startAt = Math.max(1, t.pierwszy_wiersz_z_nazwiskiem || 1)
-      const picked = rows.slice(startAt - 1).map(r => (r[colIdx] || '').trim()).filter(Boolean)
-
-      previewNames = picked
-        .map(raw => {
-          const s = splitFullName(raw)
-          if (!s) return null
-          return { raw, imie: s.imie, nazwisko: s.nazwisko, norm: normTxt(`${s.imie} ${s.nazwisko}`) }
-        })
-        .filter(Boolean) as any[]
+      const startAt = Number(t.pierwszy_wiersz_z_nazwiskiem) || 1 // 1-based
+      const rowsFrom = rows.filter((_, idx) => idx + 1 >= startAt)
+      preview = rowsFrom.map(r => cleanCell(r[colIdx] ?? ''))
     } catch (e: any) {
       previewError = e?.message || 'Błąd podglądu arkusza'
     }
   }
 
-  // Mapa istniejących graczy po fullname_norm (znormalizowane po stronie TS)
+  // Przygotuj listę do sprawdzenia w bazie tylko dla poprawnych „Imię Nazwisko”
+  const toParse = preview
+    .map(raw => {
+      const clean = raw.replace(/\s+/g, ' ').trim()
+      if (!clean) return null
+      const parts = clean.split(' ')
+      if (parts.length < 2) return null
+      const nazwisko = parts.pop()!
+      const imie = parts.join(' ')
+      if (!imie || !nazwisko) return null
+      const norm = normTxt(`${imie} ${nazwisko}`)
+      return { raw: clean, imie, nazwisko, norm }
+    })
+    .filter(Boolean) as { raw: string, imie: string, nazwisko: string, norm: string }[]
+
   let existsMap = new Map<string, true>()
-  if (previewNames.length) {
-    const norms = Array.from(new Set(previewNames.map(n => n.norm)))
-    // zapytaj bazę po fullname_norm IN (...)
+  if (toParse.length) {
+    const norms = Array.from(new Set(toParse.map(r => r.norm)))
     const { data: found } = await supabase
       .from('gracz')
-      .select('id, imie, nazwisko, fullname_norm')
+      .select('fullname_norm')
       .in('fullname_norm', norms)
     found?.forEach(r => { if (r.fullname_norm) existsMap.set(String(r.fullname_norm), true) })
   }
@@ -211,7 +226,7 @@ export default async function EditTurniejPage({ params, searchParams }: { params
         </AutoHide>
       )}
 
-      {/* Formularz turnieju (bez zmian) */}
+      {/* Formularz turnieju */}
       <form action={`/admin/turniej/${t.id}/update`} method="post" className="space-y-5 max-w-2xl">
         <div>
           <label className="block text-sm font-medium">Nazwa *</label>
@@ -231,7 +246,13 @@ export default async function EditTurniejPage({ params, searchParams }: { params
 
         <div>
           <label className="block text-sm font-medium">Link do arkusza Google</label>
-          <input name="gsheet_url" defaultValue={t.gsheet_url ?? ''} className="mt-1 w-full rounded border px-3 py-2" placeholder="https://docs.google.com/..." />
+          <input
+            id="gsheet_url"                 // ID potrzebne dla SheetPicker
+            name="gsheet_url"
+            defaultValue={t.gsheet_url ?? ''}
+            className="mt-1 w-full rounded border px-3 py-2"
+            placeholder="https://docs.google.com/spreadsheets/d/..."
+          />
         </div>
 
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
@@ -241,7 +262,25 @@ export default async function EditTurniejPage({ params, searchParams }: { params
           </div>
           <div>
             <label className="block text-sm font-medium">Nazwa karty</label>
-            <input name="arkusz_nazwa" defaultValue={t.arkusz_nazwa ?? ''} className="mt-1 w-full rounded border px-3 py-2" />
+            <input
+              id="arkusz_nazwa"            // ID potrzebne dla SheetPicker
+              name="arkusz_nazwa"
+              defaultValue={t.arkusz_nazwa ?? ''}
+              className="mt-1 w-full rounded border px-3 py-2"
+              placeholder="np. Lista"
+            />
+          </div>
+        </div>
+
+        {/* Wybór karty z pliku (klient) */}
+        <div>
+          <label className="block text-sm font-medium">Wybierz kartę z pliku</label>
+          <div className="mt-1">
+            <SheetPicker
+              urlInputId="gsheet_url"
+              sheetInputId="arkusz_nazwa"
+              // gidHiddenInputId="arkusz_gid" // opcjonalnie, jeśli dodasz hidden input
+            />
           </div>
         </div>
 
@@ -321,7 +360,7 @@ export default async function EditTurniejPage({ params, searchParams }: { params
                     <td className="px-3 py-2">{r.punkty ?? '—'}</td>
                   </tr>
                 ))}
-                {!uczestnicy?.length && (
+                {!(uczestnicy && uczestnicy.length) && (
                   <tr>
                     <td className="px-3 py-6 text-sm opacity-60" colSpan={6}>
                       Brak uczestników. Użyj importu lub dodaj ręcznie.
@@ -342,56 +381,80 @@ export default async function EditTurniejPage({ params, searchParams }: { params
             {typeof t.pierwszy_wiersz_z_nazwiskiem === 'number' ? <> • od wiersza: <strong>{t.pierwszy_wiersz_z_nazwiskiem}</strong></> : null}
           </p>
 
-          {previewError ? (
-            <div className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+          {previewError && (
+            <div className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800">
               {previewError}
             </div>
-          ) : (
-            <div className="overflow-x-auto rounded border">
-              <table className="min-w-full text-sm border-collapse">
-                <thead className="bg-slate-50">
-                  <tr className="border-b">
-                    <th className="px-3 py-2 text-left">#</th>
-                    <th className="px-3 py-2 text-left">Z arkusza</th>
-                    <th className="px-3 py-2 text-left">Status w bazie</th>
-                    <th className="px-3 py-2 text-left">Akcja</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {previewNames.map((n, i) => {
-                    const exists = existsMap.get(n.norm) === true
-                    return (
-                      <tr key={`${n.raw}-${i}`} className="border-b last:border-0">
-                        <td className="px-3 py-2">{i + 1}</td>
-                        <td className="px-3 py-2">{n.raw}</td>
-                        <td className="px-3 py-2">
-                          {exists ? <span className="text-green-700">✅ w bazie</span> : <span className="text-slate-700">— brak —</span>}
-                        </td>
-                        <td className="px-3 py-2">
-                          {!exists && (
-                            <form action="/admin/gracz/add" method="post" className="inline">
-                              <input type="hidden" name="imie" value={n.imie} />
-                              <input type="hidden" name="nazwisko" value={n.nazwisko} />
-                              {/* wracamy na bieżącą stronę po akcji */}
-                              <input type="hidden" name="back" value={`/admin/turniej/${t.id}/edit`} />
-                              <button type="submit" className="pill pill--secondary">Dodaj</button>
-                            </form>
-                          )}
-                        </td>
-                      </tr>
-                    )
-                  })}
-                  {!previewNames.length && (
-                    <tr>
-                      <td className="px-3 py-6 text-sm opacity-60" colSpan={4}>
-                        Brak danych do podglądu — uzupełnij link, kolumnę i pierwszy wiersz.
+          )}
+
+          <div className="overflow-x-auto rounded border">
+            <table className="min-w-full text-sm border-collapse">
+              <thead className="bg-slate-50">
+                <tr className="border-b">
+                  <th className="px-3 py-2 text-left">#</th>
+                  <th className="px-3 py-2 text-left">Z arkusza</th>
+                  <th className="px-3 py-2 text-left">Status w bazie</th>
+                  <th className="px-3 py-2 text-left">Akcja</th>
+                </tr>
+              </thead>
+              <tbody>
+                {preview.map((raw, i) => {
+                  const clean = raw.replace(/\s+/g, ' ').trim()
+                  const sheetRow = (t.pierwszy_wiersz_z_nazwiskiem ?? 1) + i
+
+                  let imie: string | null = null
+                  let nazwisko: string | null = null
+                  let norm: string | null = null
+
+                  if (clean) {
+                    const parts = clean.split(' ')
+                    if (parts.length >= 2) {
+                      nazwisko = parts.pop()!
+                      imie = parts.join(' ')
+                      if (imie && nazwisko) norm = normTxt(`${imie} ${nazwisko}`)
+                    }
+                  }
+
+                  const exists = norm ? existsMap.get(norm) === true : false
+
+                  return (
+                    <tr key={`${raw}-${i}`} className="border-b last:border-0">
+                      <td className="px-3 py-2">{sheetRow}</td>
+                      <td className="px-3 py-2">{clean || <span className="opacity-50">— puste —</span>}</td>
+                      <td className="px-3 py-2">
+                        {!norm ? (
+                          <span className="text-amber-700">⚠ format niepełny</span>
+                        ) : exists ? (
+                          <span className="text-green-700">✅ w bazie</span>
+                        ) : (
+                          <span className="text-slate-700">— brak —</span>
+                        )}
+                      </td>
+                      <td className="px-3 py-2">
+                        {norm && !exists && imie && nazwisko ? (
+                          <form action="/admin/gracz/add" method="post" className="inline">
+                            <input type="hidden" name="imie" value={imie} />
+                            <input type="hidden" name="nazwisko" value={nazwisko} />
+                            <input type="hidden" name="back" value={`/admin/turniej/${t.id}/edit`} />
+                            <button type="submit" className="pill pill--secondary">Dodaj</button>
+                          </form>
+                        ) : (
+                          !norm && <span className="text-xs text-slate-500">uzupełnij „Imię Nazwisko”</span>
+                        )}
                       </td>
                     </tr>
-                  )}
-                </tbody>
-              </table>
-            </div>
-          )}
+                  )
+                })}
+                {!preview.length && (
+                  <tr>
+                    <td className="px-3 py-6 text-sm opacity-60" colSpan={4}>
+                      Brak danych do podglądu — uzupełnij link, kolumnę i pierwszy wiersz.
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
         </div>
       </section>
     </main>
