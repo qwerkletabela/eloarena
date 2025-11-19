@@ -36,12 +36,7 @@ export default function Navbar({ user, role }: { user: UserLite; role: Role }) {
 
   const Arrow = ({ light }: { light?: boolean }) => (
     <span
-      className={[
-        'inline-flex h-5 w-5 items-center justify-center rounded-full border text-xs ml-1',
-        light
-          ? 'border-sky-100/80 text-sky-50 bg-sky-900/40'
-          : 'border-sky-400/70 text-sky-100 bg-sky-900/40'
-      ].join(' ')}
+      className={`btn__icon ${light ? 'btn__icon--light' : 'btn__icon--dark'}`}
       aria-hidden
     >
       <svg width="11" height="11" viewBox="0 0 24 24" fill="none">
@@ -84,7 +79,7 @@ export default function Navbar({ user, role }: { user: UserLite; role: Role }) {
           <div className="hidden md:flex items-center gap-4">
             {user ? (
               <>
-                {/* INFO: Zalogowano — ten sam wymiar co inputy/przycisk */}
+                {/* INFO: Zalogowano — „pigułka” */}
                 <span
                   className="inline-flex h-9 max-w-xs items-center truncate rounded-full border border-sky-700 bg-slate-900/70 px-4 text-xs font-medium text-sky-50 shadow-sm"
                   title={user.email || undefined}
@@ -93,7 +88,7 @@ export default function Navbar({ user, role }: { user: UserLite; role: Role }) {
                 </span>
                 <form action="/auth/signout" method="post">
                   <button
-                    className="inline-flex h-9 items-center gap-2 rounded-full border border-sky-500 bg-sky-600 px-4 text-xs font-semibold text-white shadow-sm transition hover:bg-sky-500 hover:border-sky-300"
+                    className="btn btn--secondary h-9"
                     aria-label="Wyloguj"
                   >
                     Wyloguj
@@ -124,7 +119,7 @@ export default function Navbar({ user, role }: { user: UserLite; role: Role }) {
                   />
                   <button
                     type="submit"
-                    className="inline-flex h-9 items-center gap-2 rounded-full bg-sky-500 px-4 text-xs font-semibold text-white shadow-sm transition hover:bg-sky-400"
+                    className="btn btn--primary h-9"
                   >
                     Zaloguj
                     <Arrow light />
@@ -177,7 +172,7 @@ export default function Navbar({ user, role }: { user: UserLite; role: Role }) {
                     <span className="opacity-70">Zalogowano:</span>&nbsp;{user.email ?? '—'}
                   </span>
                   <form action="/auth/signout" method="post">
-                    <button className="w-full rounded-full border border-sky-500 bg-sky-600 px-4 py-2 text-sm font-semibold text-sky-50 hover:bg-sky-500">
+                    <button className="btn btn--primary w-full justify-center">
                       Wyloguj
                     </button>
                   </form>
@@ -186,13 +181,13 @@ export default function Navbar({ user, role }: { user: UserLite; role: Role }) {
                 <div className="space-y-2">
                   <Link
                     href="/auth/signin"
-                    className="block rounded-full border border-sky-500 bg-sky-700 px-4 py-2 text-center text-sm font-semibold text-sky-50 hover:bg-sky-600"
+                    className="btn btn--primary w-full justify-center"
                   >
                     Zaloguj się
                   </Link>
                   <Link
                     href="/auth/signup"
-                    className="block rounded-full border border-sky-400 bg-transparent px-4 py-2 text-center text-sm font-semibold text-sky-200 hover:bg-slate-900"
+                    className="btn btn--secondary w-full justify-center"
                   >
                     Rejestracja
                   </Link>
