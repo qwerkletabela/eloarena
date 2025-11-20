@@ -16,8 +16,8 @@
     padding: 0;
 }
 
-body {
-    align-items: center;
+/*body {
+    align-items: left;
     background: linear-gradient(
         to top right,
         var(--color-bg-dark),
@@ -233,4 +233,67 @@ body {
     100% {
         transform: translate(-50vw, -30vw);
     }
+}
+
+.form__input--nav {
+  font-size: 14px;
+  padding: 6px 16px;
+  border-radius: 9999px;
+}
+
+/* Mniejsza wersja przycisku do navbara 
+.form__button--nav {
+  font-size: 14px;        /* zamiast 24px 
+  padding: 6px 24px;      /* mniejsze paddingi 
+  border-radius: 9999px;  /* bardziej „pill” jak w pasku 
+}*/
+
+
+@layer components {
+  .btn {
+    @apply inline-flex items-center justify-center gap-2 px-5 py-2.5 text-sm font-semibold
+      rounded-full cursor-pointer select-none
+      transition-transform transition-shadow duration-150
+      focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2;
+  }
+
+  .btn--primary {
+    @apply text-white bg-gradient-to-b from-sky-500 to-sky-600
+      shadow-[0_6px_14px_rgba(56,189,248,0.35)]
+      focus-visible:ring-sky-400 focus-visible:ring-offset-slate-950;
+  }
+
+  .btn--primary:hover {
+    @apply from-sky-400 to-sky-500 shadow-[0_8px_18px_rgba(56,189,248,0.45)] -translate-y-0.5;
+  }
+
+  .btn--primary:active {
+    @apply from-sky-600 to-sky-700 shadow-[0_4px_10px_rgba(15,23,42,0.6)] translate-y-0;
+  }
+
+  .btn--secondary {
+    @apply text-sky-100 border border-sky-500/70 bg-slate-900/60
+      shadow-[0_4px_10px_rgba(15,23,42,0.7)]
+      focus-visible:ring-sky-400 focus-visible:ring-offset-slate-950;
+  }
+
+  .btn--secondary:hover {
+    @apply bg-slate-800/80 border-sky-300 shadow-[0_6px_14px_rgba(15,23,42,0.85)] -translate-y-0.5;
+  }
+
+  .btn--secondary:active {
+    @apply bg-slate-900 border-sky-500 shadow-[0_3px_8px_rgba(15,23,42,0.8)] translate-y-0;
+  }
+
+  .btn__icon {
+    @apply inline-flex h-5 w-5 items-center justify-center rounded-full border text-[10px];
+  }
+
+  .btn__icon--light {
+    @apply border-sky-100/80 text-sky-50 bg-sky-900/40;
+  }
+
+  .btn__icon--dark {
+    @apply border-sky-400/80 text-sky-100 bg-sky-900/40;
+  }
 }

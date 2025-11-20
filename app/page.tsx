@@ -1,7 +1,8 @@
-export default function Home() {
+// app/page.tsx
+export default function HomePage() {
   return (
-    <main className="p-6">
-      <div className="rounded p-4 bg-red-600 text-white">
+    <main className="px-6 py-6">
+      <div className="inline-flex rounded-lg bg-red-600 px-6 py-3 text-white text-lg font-semibold shadow-lg">
         Tailwind działa 🔥
       </div>
     </main>
