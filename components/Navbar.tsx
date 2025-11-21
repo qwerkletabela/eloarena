@@ -109,7 +109,7 @@ export default function Navbar({ user, role }: { user: UserLite; role: Role }) {
   <input
     name="identifier"
     placeholder="E-mail lub login"
-    autoComplete="new-email"
+    autoComplete="email"
     className={inputStyle}
   />
 
