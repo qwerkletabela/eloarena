@@ -34,23 +34,6 @@ export default function Navbar({ user, role }: { user: UserLite; role: Role }) {
     )
   }
 
-  const Arrow = () => (
-    <span
-      className="inline-flex h-5 w-5 items-center justify-center rounded-full border border-white/80 text-[10px]"
-      aria-hidden
-    >
-      <svg width="11" height="11" viewBox="0 0 24 24" fill="none">
-        <path
-          d="M8 5l8 7-8 7"
-          stroke="currentColor"
-          strokeWidth="2"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-        />
-      </svg>
-    </span>
-  )
-
   const primaryBtn =
     'inline-flex items-center gap-2 rounded-full px-5 h-9 text-sm font-semibold text-white ' +
     'bg-gradient-to-b from-sky-400 to-sky-600 shadow-md ' +
@@ -90,6 +73,8 @@ export default function Navbar({ user, role }: { user: UserLite; role: Role }) {
 
             {/* linki desktop */}
             <div className="hidden md:flex items-center gap-2">
+              {/* gdy NIE zalogowany → najpierw Rejestracja, potem Turnieje */}
+              {!user && <NavLink href="/auth/signup">Rejestracja</NavLink>}
               <NavLink href="/turniej">Turnieje</NavLink>
               {user && <NavLink href="/profile">Profil</NavLink>}
               {role === 'admin' && <NavLink href="/admin">Admin</NavLink>}
@@ -113,7 +98,6 @@ export default function Navbar({ user, role }: { user: UserLite; role: Role }) {
                     aria-label="Wyloguj"
                   >
                     Wyloguj
-                    <Arrow />
                   </button>
                 </form>
               </>
@@ -142,15 +126,9 @@ export default function Navbar({ user, role }: { user: UserLite; role: Role }) {
                     className={primaryBtn}
                   >
                     Zaloguj
-                    <Arrow />
                   </button>
                 </form>
-                <Link
-                  href="/auth/signup"
-                  className="text-[11px] leading-none text-sky-100 hover:text-white"
-                >
-                  rejestracja
-                </Link>
+                {/* tutaj usunięto link "rejestracja", bo przeniesiony na lewą stronę */}
               </div>
             )}
           </div>
@@ -177,6 +155,8 @@ export default function Navbar({ user, role }: { user: UserLite; role: Role }) {
         {open && (
           <div className="md:hidden border-t border-sky-800 bg-slate-950/95">
             <div className="flex flex-col gap-2 px-4 py-3">
+              {/* taki sam porządek jak na desktopie */}
+              {!user && <NavLink href="/auth/signup">Rejestracja</NavLink>}
               <NavLink href="/turniej">Turnieje</NavLink>
               {user && <NavLink href="/profile">Profil</NavLink>}
               {role === 'admin' && <NavLink href="/admin">Admin</NavLink>}
