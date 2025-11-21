@@ -11,9 +11,7 @@ export default function Navbar({ user, role }: { user: UserLite; role: Role }) {
   const [open, setOpen] = useState(false)
   const pathname = usePathname()
 
-  useEffect(() => {
-    setOpen(false)
-  }, [pathname])
+  useEffect(() => { setOpen(false) }, [pathname])
 
   const NavLink = ({ href, children }: { href: string; children: React.ReactNode }) => {
     const active = pathname === href
@@ -21,181 +19,153 @@ export default function Navbar({ user, role }: { user: UserLite; role: Role }) {
       <Link
         href={href}
         className={[
-          'relative px-3 py-2 text-sm font-medium transition-colors',
-          'text-sky-100/80 hover:text-white',
-          active ? 'text-white' : '',
+          'relative px-3 py-2 text-sm font-medium transition',
+          'text-sky-200/80 hover:text-sky-300',
+          active ? 'text-sky-300' : '',
         ].join(' ')}
       >
-        <span>{children}</span>
+        {children}
         {active && (
-          <span className="pointer-events-none absolute inset-x-2 -bottom-1 h-0.5 rounded-full bg-sky-400" />
+          <span className="absolute inset-x-2 -bottom-1 h-0.5 rounded-full bg-sky-400" />
         )}
       </Link>
     )
   }
 
-  const primaryBtn =
-    'inline-flex items-center gap-2 rounded-full px-5 h-9 text-sm font-semibold text-white ' +
-    'bg-gradient-to-b from-sky-400 to-sky-600 shadow-md ' +
-    'transition transform duration-150 ' +
-    'hover:from-sky-300 hover:to-sky-500 hover:-translate-y-0.5 ' +
-    'active:translate-y-0 active:shadow-sm ' +
-    'focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-300 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-900'
+  const inputStyle =
+    'h-9 rounded-lg border border-slate-600 bg-slate-900/70 px-3 text-xs text-sky-50 ' +
+    'placeholder:text-slate-400 shadow-sm focus:outline-none focus:ring-1 focus:ring-sky-400'
 
-  const secondaryBtn =
-    'inline-flex items-center gap-2 rounded-full px-5 h-9 text-sm font-semibold ' +
-    'text-sky-100 bg-slate-900/60 border border-sky-500/70 shadow-md ' +
-    'transition transform duration-150 ' +
-    'hover:bg-slate-800/80 hover:border-sky-300 hover:-translate-y-0.5 ' +
-    'active:translate-y-0 active:shadow-sm ' +
-    'focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-300 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-900'
+  const buttonPrimary =
+    'h-9 rounded-full bg-gradient-to-r from-sky-500 to-sky-600 px-5 text-sm font-semibold text-white ' +
+    'shadow-[0_5px_18px_rgba(15,23,42,0.8)] transition ' +
+    'hover:from-sky-400 hover:to-sky-500 hover:shadow-[0_7px_22px_rgba(15,23,42,1)]'
 
-  const inputNav =
-    'h-9 rounded-full border border-white/40 bg-white/10 px-4 text-xs text-sky-50 ' +
-    'placeholder:text-sky-100/60 shadow-sm ' +
-    'focus:outline-none focus:ring-2 focus:ring-sky-300 focus:border-transparent'
+  const buttonSecondary =
+    'h-9 rounded-full bg-slate-900/70 border border-sky-600 px-5 text-sm font-semibold text-sky-100 ' +
+    'shadow-sm hover:bg-slate-800 hover:border-sky-400 transition'
 
   return (
     <header className="sticky top-0 z-50">
-      {/* cienki pasek akcentu na górze */}
+      {/* Pasek akcentu */}
       <div className="h-1 w-full bg-gradient-to-r from-sky-500 via-sky-400 to-sky-500" />
 
-      <nav className="w-full bg-gradient-to-r from-red-700 via-red-800 to-red-900 text-sky-50/90 backdrop-blur border-b border-blue-800/60 shadow-md">
-        <div className="mx-auto flex max-w-7xl items-center justify-between gap-4 px-6 py-3">
-          {/* LEWA STRONA: logo EA + linki (desktop) */}
+      <nav className="
+        w-full 
+        bg-slate-900/95
+        backdrop-blur-md
+        border-b border-slate-700
+        shadow-[0_8px_25px_rgba(0,0,0,0.7)]
+      ">
+        <div className="mx-auto flex max-w-7xl items-center justify-between px-6 py-3">
+
+          {/* LEWA STRONA */}
           <div className="flex items-center gap-4">
-            {/* logo */}
             <Link href="/" className="flex items-center gap-2">
-              <span className="inline-flex h-7 w-7 items-center justify-center rounded-lg bg-sky-500 shadow-sm">
-                <span className="text-xs font-bold text-white">EA</span>
+              <span className="inline-flex h-8 w-8 items-center justify-center rounded-lg 
+                bg-sky-500 text-slate-900 font-bold shadow-md">
+                EA
               </span>
             </Link>
 
-            {/* linki desktop */}
-            <div className="hidden md:flex items-center gap-2">
-              {/* gdy NIE zalogowany → najpierw Rejestracja, potem Turnieje */}
-              {!user && <NavLink href="/auth/signup">Rejestracja</NavLink>}
+            <div className="hidden md:flex items-center gap-3">
               <NavLink href="/turniej">Turnieje</NavLink>
+
+              {!user && <NavLink href="/auth/signup">Rejestracja</NavLink>}
+
               {user && <NavLink href="/profile">Profil</NavLink>}
               {role === 'admin' && <NavLink href="/admin">Admin</NavLink>}
             </div>
           </div>
 
-          {/* PRAWA STRONA: logowanie / info (desktop) */}
-          <div className="hidden md:flex items-center gap-4">
+          {/* PRAWA STRONA */}
+          <div className="hidden md:flex items-center gap-3">
+
             {user ? (
               <>
-                {/* INFO: Zalogowano — pigułka */}
-                <span
-                  className="inline-flex h-9 max-w-xs items-center truncate rounded-full border border-sky-600 bg-slate-900/70 px-4 text-xs font-medium text-sky-50 shadow-sm"
-                  title={user.email || undefined}
-                >
-                  <span className="opacity-70">Zalogowano:</span>&nbsp;{user.email ?? '—'}
+                <span className="inline-flex h-9 items-center truncate rounded-full 
+                  border border-sky-600 bg-slate-800/70 px-4 text-xs font-medium text-sky-200">
+                  <span className="opacity-70">Zalogowano:</span>&nbsp;{user.email}
                 </span>
+
                 <form action="/auth/signout" method="post">
-                  <button
-                    className={secondaryBtn}
-                    aria-label="Wyloguj"
-                  >
+                  <button className={buttonSecondary}>
                     Wyloguj
                   </button>
                 </form>
               </>
             ) : (
-              <div className="flex flex-col items-end gap-1">
-                <form
-                  action="/auth/signin/submit"
-                  method="post"
-                  className="flex items-center gap-2"
-                >
-                  <input
-                    name="identifier"
-                    placeholder="E-mail lub login"
-                    autoComplete="off"
-                    className={inputNav}
-                  />
-                  <input
-                    type="password"
-                    name="password"
-                    placeholder="Hasło"
-                    autoComplete="off"
-                    className={inputNav}
-                  />
-                  <button
-                    type="submit"
-                    className={primaryBtn}
-                  >
-                    Zaloguj
-                  </button>
-                </form>
-                {/* tutaj usunięto link "rejestracja", bo przeniesiony na lewą stronę */}
-              </div>
+              <form
+  action="/auth/signin/submit"
+  method="post"
+  className="flex items-center gap-2"
+  autoComplete="off"
+>
+
+  {/* Fake input – przechwytuje autouzupełnianie */}
+  <input type="text" autoComplete="username" className="hidden" />
+  <input type="password" autoComplete="current-password" className="hidden" />
+
+  <input
+    name="identifier"
+    placeholder="E-mail lub login"
+    autoComplete="new-email"
+    className={inputStyle}
+  />
+
+  <input
+    type="password"
+    name="password"
+    placeholder="Hasło"
+    autoComplete="new-password"
+    className={inputStyle}
+  />
+
+  <button className={buttonPrimary}>Zaloguj</button>
+</form>
+
             )}
+
           </div>
 
-          {/* burger mobile */}
+          {/* BURGER MOBILE */}
           <button
-            className="md:hidden inline-flex h-10 w-10 items-center justify-center rounded-md border border-sky-600 bg-slate-900/70 text-sky-50 hover:bg-slate-800"
-            onClick={() => setOpen(v => !v)}
-            aria-label="Otwórz menu"
-            aria-expanded={open}
+            className="md:hidden inline-flex h-10 w-10 items-center justify-center 
+            rounded-md border border-sky-600 bg-slate-800/70 text-sky-200"
+            onClick={() => setOpen((v) => !v)}
           >
-            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" aria-hidden>
-              <path
-                d="M4 6h16M4 12h16M4 18h16"
-                stroke="currentColor"
-                strokeWidth="2"
-                strokeLinecap="round"
-              />
+            <svg width="22" height="22" viewBox="0 0 24 24" stroke="currentColor">
+              <path d="M4 6h16M4 12h16M4 18h16" strokeWidth="2" strokeLinecap="round" />
             </svg>
           </button>
         </div>
 
-        {/* menu mobile */}
+        {/* MENU MOBILE */}
         {open && (
-          <div className="md:hidden border-t border-sky-800 bg-slate-950/95">
-            <div className="flex flex-col gap-2 px-4 py-3">
-              {/* taki sam porządek jak na desktopie */}
-              {!user && <NavLink href="/auth/signup">Rejestracja</NavLink>}
-              <NavLink href="/turniej">Turnieje</NavLink>
-              {user && <NavLink href="/profile">Profil</NavLink>}
-              {role === 'admin' && <NavLink href="/admin">Admin</NavLink>}
+          <div className="md:hidden border-t border-sky-700 bg-slate-900/95 px-4 py-3 space-y-2">
 
-              <div className="my-3 border-t border-sky-800" />
+            <NavLink href="/turniej">Turnieje</NavLink>
+            {!user && <NavLink href="/auth/signup">Rejestracja</NavLink>}
+            {user && <NavLink href="/profile">Profil</NavLink>}
+            {role === 'admin' && <NavLink href="/admin">Admin</NavLink>}
 
-              {user ? (
-                <div className="space-y-2">
-                  <span
-                    className="block rounded-full border border-sky-700 bg-slate-900/80 px-3 py-1.5 text-xs text-sky-50"
-                    title={user.email || undefined}
-                  >
-                    <span className="opacity-70">Zalogowano:</span>&nbsp;{user.email ?? '—'}
-                  </span>
-                  <form action="/auth/signout" method="post">
-                    <button className={`${primaryBtn} w-full justify-center`}>
-                      Wyloguj
-                    </button>
-                  </form>
-                </div>
-              ) : (
-                <div className="space-y-2">
-                  <Link
-                    href="/auth/signin"
-                    className={`${primaryBtn} w-full justify-center`}
-                  >
-                    Zaloguj się
-                  </Link>
-                  <Link
-                    href="/auth/signup"
-                    className={`${secondaryBtn} w-full justify-center`}
-                  >
-                    Rejestracja
-                  </Link>
-                </div>
-              )}
-            </div>
+            <div className="border-t border-sky-700 my-3" />
+
+            {user ? (
+              <form action="/auth/signout" method="post">
+                <button className={`${buttonPrimary} w-full justify-center`}>
+                  Wyloguj
+                </button>
+              </form>
+            ) : (
+              <Link href="/auth/signin" className={`${buttonPrimary} w-full justify-center`}>
+                Zaloguj
+              </Link>
+            )}
+
           </div>
         )}
+
       </nav>
     </header>
   )
