@@ -22,6 +22,7 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string
   const nazwa = String(fd.get('nazwa') || '').trim()
   const data_turnieju = String(fd.get('data_turnieju') || '').trim()
   const godzina_turnieju = String(fd.get('godzina_turnieju') || '').trim()
+  const zakonczenie_turnieju = String(fd.get('zakonczenie_turnieju') || '').trim() || null // DODANE
 
   const gsheet_url = (String(fd.get('gsheet_url') || '').trim()) || null
   const gsheet_id = (String(fd.get('gsheet_id') || '').trim()) || null
@@ -64,10 +65,18 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string
   }
 
   const updates: Record<string, any> = {
-    nazwa, data_turnieju, godzina_turnieju,
-    gsheet_url, gsheet_id, arkusz_nazwa,
-    kolumna_nazwisk, pierwszy_wiersz_z_nazwiskiem,
-    limit_graczy, lat, lng,
+    nazwa, 
+    data_turnieju, 
+    godzina_turnieju,
+    zakonczenie_turnieju, // DODANE
+    gsheet_url, 
+    gsheet_id, 
+    arkusz_nazwa,
+    kolumna_nazwisk, 
+    pierwszy_wiersz_z_nazwiskiem,
+    limit_graczy, 
+    lat, 
+    lng,
   }
 
   const { error } = await supabase.from('turniej').update(updates).eq('id', id)

@@ -8,8 +8,8 @@ type Row = {
   nazwa: string
   data_turnieju: string | null     // YYYY-MM-DD
   godzina_turnieju: string | null  // HH:MM[:SS]
+  zakonczenie_turnieju: string | null  // HH:MM[:SS]
   gsheet_url: string | null
-  arkusz_nazwa: string | null
   limit_graczy: number | null
   lat: number | null
   lng: number | null
@@ -21,12 +21,18 @@ function joinDateTime(d: string | null, t: string | null): Date | null {
   return new Date(`${d}T${hhmm}`)
 }
 
+function capitalizeFirst(str: string): string {
+  return str.charAt(0).toUpperCase() + str.slice(1)
+}
+
 function formatDatePL(d: Date) {
-  return d.toLocaleDateString('pl-PL', {
-    weekday: 'short',
-    month: 'short',
+  const formatted = d.toLocaleDateString('pl-PL', {
+    weekday: 'long',
+    year: '2-digit',
+    month: 'numeric',
     day: 'numeric',
   })
+  return capitalizeFirst(formatted)
 }
 
 function formatTimeHHMM(raw: string | null) {
@@ -84,7 +90,7 @@ function statusBadge(start: Date | null) {
   }
 }
 
-// Funkcja do tworzenia URL Google Calendar
+// Funkcja do tworzenia URL Google Calendar - ZMODYFIKOWANA aby używać godziny zakończenia
 function createGoogleCalendarUrl(r: Row): string | null {
   if (!r.data_turnieju) return null
 
@@ -98,14 +104,21 @@ function createGoogleCalendarUrl(r: Row): string | null {
 
   const startTime = formatDateForGoogle(start)
   
-  // Zakładamy, że turniej trwa 3 godziny
-  const end = new Date(start.getTime() + 3 * 60 * 60 * 1000)
-  const endTime = formatDateForGoogle(end)
+  // Używamy godziny zakończenia z bazy danych, jeśli jest dostępna
+  let endTime
+  if (r.zakonczenie_turnieju) {
+    const end = joinDateTime(r.data_turnieju, r.zakonczenie_turnieju)
+    endTime = end ? formatDateForGoogle(end) : formatDateForGoogle(new Date(start.getTime() + 3 * 60 * 60 * 1000))
+  } else {
+    // Domyślnie 3 godziny jeśli nie ma godziny zakończenia
+    const end = new Date(start.getTime() + 3 * 60 * 60 * 1000)
+    endTime = formatDateForGoogle(end)
+  }
 
   const details = []
-  if (r.arkusz_nazwa) details.push(`Arkusz: ${r.arkusz_nazwa}`)
   if (r.limit_graczy) details.push(`Limit graczy: ${r.limit_graczy}`)
   if (r.gsheet_url) details.push(`Arkusz Google: ${r.gsheet_url}`)
+  if (r.zakonczenie_turnieju) details.push(`Zakończenie: ${formatTimeHHMM(r.zakonczenie_turnieju)}`)
 
   const params = new URLSearchParams({
     action: 'TEMPLATE',
@@ -137,6 +150,7 @@ function TournamentCard({ r }: { r: Row }) {
             {start ? (
               <>
                 {formatDatePL(start)} • {formatTimeHHMM(r.godzina_turnieju)}
+                {r.zakonczenie_turnieju && ` - ${formatTimeHHMM(r.zakonczenie_turnieju)}`}
                 {r.limit_graczy ? <> • limit: {r.limit_graczy}</> : null}
               </>
             ) : (
@@ -165,8 +179,12 @@ function TournamentCard({ r }: { r: Row }) {
               {start ? formatDatePL(start) : '—'}
             </li>
             <li>
-              <span className="opacity-70">Godzina:</span>{' '}
+              <span className="opacity-70">Godzina rozpoczęcia:</span>{' '}
               {formatTimeHHMM(r.godzina_turnieju)}
+            </li>
+            <li>
+              <span className="opacity-70">Godzina zakończenia:</span>{' '}
+              {r.zakonczenie_turnieju ? formatTimeHHMM(r.zakonczenie_turnieju) : 'nieustalona'}
             </li>
             {r.limit_graczy && (
               <li>
@@ -174,12 +192,7 @@ function TournamentCard({ r }: { r: Row }) {
                 {r.limit_graczy}
               </li>
             )}
-            {r.arkusz_nazwa && (
-              <li>
-                <span className="opacity-70">Arkusz (karta):</span>{' '}
-                {r.arkusz_nazwa}
-              </li>
-            )}
+            
           </ul>
 
           <div className="flex flex-wrap gap-2 pt-2">
@@ -307,7 +320,7 @@ export default async function TurniejListPage() {
   const { data: rows } = await supabase
     .from('turniej')
     .select(
-      'id,nazwa,data_turnieju,godzina_turnieju,gsheet_url,arkusz_nazwa,limit_graczy,lat,lng'
+      'id,nazwa,data_turnieju,godzina_turnieju,zakonczenie_turnieju,gsheet_url,arkusz_nazwa,limit_graczy,lat,lng'
     )
     .order('data_turnieju', { ascending: true })
     .limit(200)
@@ -333,7 +346,7 @@ export default async function TurniejListPage() {
   })
 
   return (
-    <main className="flex min-h-[calc(100vh-4rem)] items-center justify-center px-4 py-8">
+    <main className="flex min-h-[calc(100vh-4rem)] items-center justify-center px-4 py-8 bg-slate-900">
       {/* KARTA LISTY TURNIEJÓW */}
       <div className="w-full max-w-5xl rounded-2xl bg-slate-800/95 border border-slate-700 shadow-[0_14px_40px_rgba(0,0,0,0.8)] p-6 space-y-8">
         <h1 className="text-2xl font-semibold text-sky-50 text-center">

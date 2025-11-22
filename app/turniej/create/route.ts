@@ -30,6 +30,7 @@ export async function POST(req: NextRequest) {
   const nazwa = String(fd.get('nazwa') || '').trim()
   const data_turnieju = String(fd.get('data_turnieju') || '').trim()
   const godzina_turnieju = String(fd.get('godzina_turnieju') || '').trim()
+  const zakonczenie_turnieju = String(fd.get('zakonczenie_turnieju') || '').trim() || null // DODANE NOWE POLE
 
   const gsheet_url_raw = String(fd.get('gsheet_url') || '').trim() || null
   let gsheet_id = String(fd.get('gsheet_id') || '').trim() || null
@@ -79,6 +80,7 @@ export async function POST(req: NextRequest) {
     nazwa,
     data_turnieju,
     godzina_turnieju,
+    zakonczenie_turnieju, // DODANE DO PAYLOAD
     gsheet_url,
     gsheet_id,
     arkusz_nazwa,

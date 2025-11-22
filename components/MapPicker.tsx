@@ -34,7 +34,7 @@ export default function MapPicker({
     lng: typeof lng === 'number' ? lng : 21.0122,
   }
 
-  // Czekamy aż google.maps będzie dostępne (polling do 5s)
+  // Czekamy aż google.maps będzie dostępne
   useEffect(() => {
     if (!open || ready) return
     let tries = 0
@@ -42,7 +42,7 @@ export default function MapPicker({
       tries++
       const ok = mapsReady()
       setReady(ok)
-      if (ok || tries > 50) { // ~5s
+      if (ok || tries > 50) {
         clearInterval(t)
         if (!ok) setFailed(true)
       }
@@ -53,7 +53,7 @@ export default function MapPicker({
   // Inicjalizacja mapy po otwarciu i ready
   useEffect(() => {
     if (!open || !ready || !mapRef.current) return
-    // Poczekaj aż modal wyrenderuje wymiary
+    
     const raf = requestAnimationFrame(() => {
       try {
         const map = new google.maps.Map(mapRef.current!, {
@@ -75,17 +75,16 @@ export default function MapPicker({
         })
       } catch (e) {
         setFailed(true)
-        // eslint-disable-next-line no-console
         console.error('Map init error', e)
       }
     })
+    
     return () => {
       cancelAnimationFrame(raf)
       markerRef.current?.setMap(null)
       markerRef.current = null
       gmapRef.current = null
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, ready])
 
   function confirmPick() {
@@ -101,39 +100,49 @@ export default function MapPicker({
 
   return (
     <>
-      <button type="button" className="pill pill--secondary" onClick={() => { setFailed(false); setOpen(true) }}>
+      <button 
+        type="button" 
+        className="rounded bg-sky-600 hover:bg-sky-500 px-4 py-2 text-sm font-medium text-white transition"
+        onClick={() => { setFailed(false); setOpen(true) }}
+      >
         {buttonLabel}
       </button>
 
       {open && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/40 p-4">
-          <div className="w-full max-w-3xl overflow-hidden rounded-lg bg-white shadow-lg">
-            <div className="flex items-center justify-between border-b px-4 py-3">
-              <h3 className="font-semibold">Wybierz lokalizację</h3>
-              <button type="button" className="text-sm underline" onClick={() => setOpen(false)}>Zamknij</button>
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 p-4">
+          <div className="w-full max-w-3xl overflow-hidden rounded-lg bg-white shadow-xl">
+            <div className="flex items-center justify-between border-b px-6 py-4">
+              <h3 className="text-lg font-semibold text-gray-900">Wybierz lokalizację na mapie</h3>
+              <button 
+                type="button" 
+                className="text-gray-400 hover:text-gray-500 text-xl"
+                onClick={() => setOpen(false)}
+              >
+                ×
+              </button>
             </div>
 
-            {/* Stan: brak klucza */}
             {!process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY && (
-              <div className="p-4 text-sm text-red-700">
-                Brak <code>NEXT_PUBLIC_GOOGLE_MAPS_API_KEY</code>. Dodaj do .env.local i zrestartuj dev server.
+              <div className="p-6 text-center text-red-600">
+                Brak klucza Google Maps API. Skontaktuj się z administratorem.
               </div>
             )}
 
-            {/* Stan: ładowanie SDK */}
             {!ready && !failed && (
-              <div className="flex h-[60vh] w-full items-center justify-center text-sm text-slate-600">
-                Ładowanie mapy…
+              <div className="flex h-96 w-full items-center justify-center text-gray-600">
+                <div className="text-center">
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-2"></div>
+                  <p>Ładowanie mapy...</p>
+                </div>
               </div>
             )}
 
-            {/* Stan: błąd */}
             {failed && (
-              <div className="flex h-[60vh] w-full flex-col items-center justify-center gap-2 p-4 text-center text-sm text-red-700">
-                Nie udało się załadować mapy. Sprawdź klucz/referrer i wtyczki blokujące.
+              <div className="flex h-96 w-full flex-col items-center justify-center gap-4 p-6 text-center text-red-600">
+                <p>Nie udało się załadować mapy.</p>
                 <button
                   type="button"
-                  className="pill pill--secondary"
+                  className="rounded bg-blue-600 hover:bg-blue-700 px-4 py-2 text-white text-sm font-medium transition"
                   onClick={() => { setReady(mapsReady()); setFailed(false) }}
                 >
                   Spróbuj ponownie
@@ -141,16 +150,31 @@ export default function MapPicker({
               </div>
             )}
 
-            {/* Mapa */}
             {ready && !failed && (
-              <div className="h-[60vh] w-full" ref={mapRef} />
+              <div className="h-96 w-full" ref={mapRef} />
             )}
 
-            <div className="flex justify-end gap-2 border-t px-4 py-3">
-              <button type="button" className="pill pill--secondary" onClick={() => setOpen(false)}>Anuluj</button>
-              <button type="button" className="pill pill--primary" onClick={confirmPick} disabled={!ready || failed}>
-                Ustaw
-              </button>
+            <div className="flex justify-between items-center border-t px-6 py-4">
+              <div className="text-sm text-gray-500">
+                Kliknij na mapie, aby ustawić pinezkę
+              </div>
+              <div className="flex gap-3">
+                <button 
+                  type="button" 
+                  className="rounded border border-gray-300 bg-white hover:bg-gray-50 px-4 py-2 text-gray-700 text-sm font-medium transition"
+                  onClick={() => setOpen(false)}
+                >
+                  Anuluj
+                </button>
+                <button 
+                  type="button" 
+                  className="rounded bg-blue-600 hover:bg-blue-700 px-4 py-2 text-white text-sm font-medium transition disabled:opacity-50"
+                  onClick={confirmPick} 
+                  disabled={!ready || failed}
+                >
+                  Zapisz
+                </button>
+              </div>
             </div>
           </div>
         </div>
