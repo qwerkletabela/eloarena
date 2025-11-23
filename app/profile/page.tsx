@@ -71,142 +71,145 @@ export default async function ProfilePage({
     'hover:bg-slate-700 hover:border-sky-400 transition'
 
   return (
-    <main className="flex min-h-[calc(100vh-4rem)] items-center justify-center px-4 py-8">
-      {/* KARTA PROFILU */}
-      <div className="w-full max-w-xl rounded-2xl bg-slate-800/95 border border-slate-700 shadow-[0_14px_40px_rgba(0,0,0,0.8)] p-6 space-y-5">
-        <h1 className="text-2xl font-semibold text-sky-50 text-center">
-          Twój profil
-        </h1>
+    // Dodano ciemne tło gradientowe do całej strony
+    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900">
+      <main className="flex min-h-[calc(100vh-4rem)] items-center justify-center px-4 py-8">
+        {/* KARTA PROFILU */}
+        <div className="w-full max-w-xl rounded-2xl bg-slate-800/95 border border-slate-700 shadow-[0_14px_40px_rgba(0,0,0,0.8)] p-6 space-y-5">
+          <h1 className="text-2xl font-semibold text-sky-50 text-center">
+            Twój profil
+          </h1>
 
-        {ok && (
-          <div className="rounded-md border border-emerald-300/70 bg-emerald-900/30 px-3 py-2 text-sm text-emerald-200">
-            Zapisano zmiany.
-          </div>
-        )}
-
-        {err && (
-          <div className="rounded-md border border-red-400/80 bg-red-900/40 px-3 py-2 text-sm text-red-100">
-            {err === 'username_taken'
-              ? 'Login zajęty.'
-              : err === 'voiv_required'
-              ? 'Wybierz województwo.'
-              : err === 'voiv_invalid'
-              ? 'Nieprawidłowa wartość województwa.'
-              : 'Nie udało się zapisać. Spróbuj ponownie.'}
-          </div>
-        )}
-
-        <form action="/profile/update" method="post" className="space-y-4">
-          <div>
-            <label className="block text-sm font-medium text-sky-100">
-              Login (username)
-            </label>
-            <input
-              name="username"
-              defaultValue={profile?.username ?? ''}
-              className={inputClass}
-              maxLength={32}
-              placeholder="np. m_kowalski"
-            />
-            <p className="mt-1 text-xs text-slate-300/80">
-              Musi być unikalny.
-            </p>
-          </div>
-
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-            <div>
-              <label className="block text-sm font-medium text-sky-100">
-                Imię
-              </label>
-              <input
-                name="first_name"
-                defaultValue={profile?.first_name ?? ''}
-                className={inputClass}
-              />
+          {ok && (
+            <div className="rounded-md border border-emerald-300/70 bg-emerald-900/30 px-3 py-2 text-sm text-emerald-200">
+              Zapisano zmiany.
             </div>
-            <div>
-              <label className="block text-sm font-medium text-sky-100">
-                Nazwisko
-              </label>
-              <input
-                name="last_name"
-                defaultValue={profile?.last_name ?? ''}
-                className={inputClass}
-              />
+          )}
+
+          {err && (
+            <div className="rounded-md border border-red-400/80 bg-red-900/40 px-3 py-2 text-sm text-red-100">
+              {err === 'username_taken'
+                ? 'Login zajęty.'
+                : err === 'voiv_required'
+                ? 'Wybierz województwo.'
+                : err === 'voiv_invalid'
+                ? 'Nieprawidłowa wartość województwa.'
+                : 'Nie udało się zapisać. Spróbuj ponownie.'}
             </div>
-          </div>
+          )}
 
-          <div>
-            <label className="block text-sm font-medium text-sky-100">
-              Data urodzenia
-            </label>
-            <input
-              type="date"
-              name="birthdate"
-              defaultValue={bday}
-              className={inputClass}
-            />
-          </div>
-
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+          <form action="/profile/update" method="post" className="space-y-4">
             <div>
               <label className="block text-sm font-medium text-sky-100">
-                Miasto
+                Login (username)
               </label>
               <input
-                name="city"
-                defaultValue={profile?.city ?? ''}
+                name="username"
+                defaultValue={profile?.username ?? ''}
                 className={inputClass}
+                maxLength={32}
+                placeholder="np. m_kowalski"
               />
+              <p className="mt-1 text-xs text-slate-300/80">
+                Musi być unikalny.
+              </p>
+            </div>
+
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+              <div>
+                <label className="block text-sm font-medium text-sky-100">
+                  Imię
+                </label>
+                <input
+                  name="first_name"
+                  defaultValue={profile?.first_name ?? ''}
+                  className={inputClass}
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-sky-100">
+                  Nazwisko
+                </label>
+                <input
+                  name="last_name"
+                  defaultValue={profile?.last_name ?? ''}
+                  className={inputClass}
+                />
+              </div>
             </div>
 
             <div>
               <label className="block text-sm font-medium text-sky-100">
-                Województwo
+                Data urodzenia
               </label>
-              <select
-                name="voivodeship"
-                defaultValue={profile?.voivodeship ?? ''}
-                className={selectClass}
-                required
-              >
-                <option value="" disabled>
-                  — wybierz —
-                </option>
-                {VOIVODESHIPS.map((v) => (
-                  <option key={v} value={v}>
-                    {v}
+              <input
+                type="date"
+                name="birthdate"
+                defaultValue={bday}
+                className={inputClass}
+              />
+            </div>
+
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+              <div>
+                <label className="block text-sm font-medium text-sky-100">
+                  Miasto
+                </label>
+                <input
+                  name="city"
+                  defaultValue={profile?.city ?? ''}
+                  className={inputClass}
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-sky-100">
+                  Województwo
+                </label>
+                <select
+                  name="voivodeship"
+                  defaultValue={profile?.voivodeship ?? ''}
+                  className={selectClass}
+                  required
+                >
+                  <option value="" disabled>
+                    — wybierz —
                   </option>
-                ))}
-              </select>
+                  {VOIVODESHIPS.map((v) => (
+                    <option key={v} value={v}>
+                      {v}
+                    </option>
+                  ))}
+                </select>
+              </div>
             </div>
-          </div>
 
-          <div className="text-sm text-sky-100/80">
-            <span className="opacity-70">Rola:</span>{' '}
-            <span
-              className={
-                profile?.role === 'admin'
-                  ? 'font-semibold text-red-300'
-                  : 'font-medium'
-              }
-            >
-              {profile?.role ?? 'user'}
-            </span>{' '}
-            • <span className="opacity-70">Email:</span>{' '}
-            {profile?.email ?? user.email}
-          </div>
+            <div className="text-sm text-sky-100/80">
+              <span className="opacity-70">Rola:</span>{' '}
+              <span
+                className={
+                  profile?.role === 'admin'
+                    ? 'font-semibold text-red-300'
+                    : 'font-medium'
+                }
+              >
+                {profile?.role ?? 'user'}
+              </span>{' '}
+              • <span className="opacity-70">Email:</span>{' '}
+              {profile?.email ?? user.email}
+            </div>
 
-          <div className="flex flex-wrap gap-2 pt-2 justify-end">
-            <button className={primaryBtn} type="submit">
-              Zapisz zmiany
-            </button>
-            <a href="/" className={secondaryBtn}>
-              Anuluj
-            </a>
-          </div>
-        </form>
-      </div>
-    </main>
+            <div className="flex flex-wrap gap-2 pt-2 justify-end">
+              <button className={primaryBtn} type="submit">
+                Zapisz zmiany
+              </button>
+              <a href="/" className={secondaryBtn}>
+                Anuluj
+              </a>
+            </div>
+          </form>
+        </div>
+      </main>
+    </div>
   )
 }

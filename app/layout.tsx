@@ -4,7 +4,6 @@ import LoadGoogleMaps from '@/components/LoadGoogleMaps'
 import { createSupabaseServer } from '@/lib/supabase/server'
 import Navbar from '@/components/Navbar'
 
-
 export const dynamic = 'force-dynamic'
 export const revalidate = 0
 
@@ -45,7 +44,8 @@ export default async function RootLayout({ children }: { children: React.ReactNo
 
   return (
     <html lang="pl">
-      <body className="min-h-dvh antialiased">
+      {/* DODAJ GRADIENT TUTAJ - zmodyfikuj klasę body */}
+      <body className="min-h-dvh antialiased bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900">
         <Navbar user={user ? { id: user.id, email: user.email } : null} role={role} />
         {children}
         <LoadGoogleMaps />

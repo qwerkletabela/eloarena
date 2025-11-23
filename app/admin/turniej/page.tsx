@@ -27,7 +27,7 @@ export default async function AdminTurniejList() {
 
   if (error) {
     return (
-      <main className="flex min-h-[calc(100vh-4rem)] items-center justify-center px-4 py-8 bg-slate-900">
+      <main className="flex min-h-[calc(100vh-4rem)] items-center justify-center px-4 py-8">
         <div className="w-full max-w-6xl rounded-2xl bg-slate-800/95 border border-slate-700 shadow-[0_14px_40px_rgba(0,0,0,0.8)] p-6">
           <h1 className="text-2xl font-semibold text-sky-50 mb-4">Turnieje - Panel admina</h1>
           <div className="rounded-md border border-red-400/50 bg-red-500/10 px-4 py-3 text-red-200">
@@ -39,7 +39,7 @@ export default async function AdminTurniejList() {
   }
 
   return (
-    <main className="flex min-h-[calc(100vh-4rem)] items-center justify-center px-4 py-8 bg-slate-900">
+    <main className="flex min-h-[calc(100vh-4rem)] items-center justify-center px-4 py-8">
       <div className="w-full max-w-6xl rounded-2xl bg-slate-800/95 border border-slate-700 shadow-[0_14px_40px_rgba(0,0,0,0.8)] p-6 space-y-6">
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
           <div>
