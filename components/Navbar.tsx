@@ -5,7 +5,8 @@ import { useEffect, useState } from 'react'
 import { usePathname } from 'next/navigation'
 
 type UserLite = { id: string; email?: string | null } | null
-type Role = 'admin' | 'user' | null
+type Role = 'admin' | 'organizer' | 'user' | null
+
 
 export default function Navbar({ user, role }: { user: UserLite; role: Role }) {
   const [open, setOpen] = useState(false)
