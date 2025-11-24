@@ -1,3 +1,4 @@
+// components/MapPicker.tsx
 'use client'
 
 import { useEffect, useRef, useState } from 'react'
@@ -8,6 +9,7 @@ type Props = {
   lat?: number | null
   lng?: number | null
   buttonLabel?: string
+  onLocationChange?: (lat: number, lng: number) => void // DODANE
 }
 
 function mapsReady() {
@@ -20,6 +22,7 @@ export default function MapPicker({
   lat,
   lng,
   buttonLabel = 'Ustaw pinezkę',
+  onLocationChange, // DODANE
 }: Props) {
   const [open, setOpen] = useState(false)
   const [ready, setReady] = useState(mapsReady())
@@ -69,9 +72,28 @@ export default function MapPicker({
         })
         markerRef.current = marker
 
+        // DODANE: Wywołaj callback z początkową lokalizacją
+        if (onLocationChange) {
+          onLocationChange(defaultCenter.lat, defaultCenter.lng)
+        }
+
         map.addListener('click', (e: google.maps.MapMouseEvent) => {
           const pos = e.latLng
-          if (pos) marker.setPosition(pos)
+          if (pos) {
+            marker.setPosition(pos)
+            // DODANE: Wywołaj callback gdy kliknięto na mapę
+            if (onLocationChange) {
+              onLocationChange(pos.lat(), pos.lng())
+            }
+          }
+        })
+
+        // DODANE: Obsługa przeciągania markera
+        marker.addListener('dragend', () => {
+          const pos = marker.getPosition()
+          if (pos && onLocationChange) {
+            onLocationChange(pos.lat(), pos.lng())
+          }
         })
       } catch (e) {
         setFailed(true)
@@ -94,6 +116,11 @@ export default function MapPicker({
       const lngEl = document.getElementById(targetLngId) as HTMLInputElement | null
       if (latEl) latEl.value = String(pos.lat())
       if (lngEl) lngEl.value = String(pos.lng())
+      
+      // DODANE: Wywołaj callback również przy potwierdzeniu
+      if (onLocationChange) {
+        onLocationChange(pos.lat(), pos.lng())
+      }
     }
     setOpen(false)
   }

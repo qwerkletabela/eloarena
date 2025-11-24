@@ -1,8 +1,7 @@
-// app/admin/turniej/page.tsx
-import { redirect } from 'next/navigation'
+// app/admin/miejsca/page.tsx
 import Link from 'next/link'
+import { redirect } from 'next/navigation'
 import { createSupabaseServer } from '@/lib/supabase/server'
-import DeleteTurniej from '@/components/DeleteTurniej'
 
 export const dynamic = 'force-dynamic'
 export const revalidate = 0
@@ -10,70 +9,45 @@ export const revalidate = 0
 type Row = {
   id: string
   nazwa: string
-  data_turnieju: string | null
-  godzina_turnieju: string | null
-  zakonczenie_turnieju: string | null
-  limit_graczy: number | null
+  miasto: string
+  wojewodztwo: string | null
+  adres: string | null
+  latitude: number
+  longitude: number
   created_at: string | null
 }
 
-// łączenie daty + godziny w Date
-function joinDateTime(d: string | null, t: string | null): Date | null {
-  if (!d) return null
-  const hhmm = (t ?? '00:00').slice(0, 5)
-  return new Date(`${d}T${hhmm}`)
-}
-
-// pierwsza litera wielka
-function capitalizeFirst(str: string): string {
-  if (!str) return str
-  return str.charAt(0).toUpperCase() + str.slice(1)
-}
-
-// data po polsku, z ładnym formatem
-function formatDatePL(d: Date) {
-  const formatted = d.toLocaleDateString('pl-PL', {
-    weekday: 'long',
-    year: '2-digit',
-    month: 'numeric',
-    day: 'numeric',
-  })
-  return capitalizeFirst(formatted)
-}
-
-// zawsze HH:MM
-function formatTimeHHMM(raw: string | null) {
-  if (!raw) return '00:00'
-  return raw.slice(0, 5)
-}
-
-export default async function AdminTurniejList() {
+export default async function AdminMiejscaList() {
   const supabase = await createSupabaseServer()
 
   // wymagane logowanie
-  const { data: { user } } = await supabase.auth.getUser()
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
   if (!user) redirect('/auth/signin')
 
-  // wymagany admin
+  // wymagany admin (tak jak w innych stronach panelu)
   const { data: isAdmin } = await supabase.rpc('is_admin')
   if (!isAdmin) redirect('/')
 
-  // lista turniejów
+  // pobierz miejsca
   const { data: rows, error } = await supabase
-    .from('turniej')
+    .from('miejsce_turnieju')
     .select(
-      'id, nazwa, data_turnieju, godzina_turnieju, zakonczenie_turnieju, limit_graczy, created_at'
+      'id, nazwa, miasto, wojewodztwo, adres, latitude, longitude, created_at'
     )
-    .order('created_at', { ascending: false })
-    .limit(200)
+    .order('miasto', { ascending: true })
+    .order('nazwa', { ascending: true })
 
   if (error) {
     return (
       <main className="flex min-h-[calc(100vh-4rem)] items-center justify-center px-4 py-8">
         <div className="w-full max-w-6xl rounded-2xl bg-slate-800/95 border border-slate-700 shadow-[0_14px_40px_rgba(0,0,0,0.8)] p-6">
-          <h1 className="text-2xl font-semibold text-sky-50 mb-4">Turnieje - Panel admina</h1>
+          <h1 className="text-2xl font-semibold text-sky-50 mb-4">
+            Miejsca turniejów - Panel admina
+          </h1>
           <div className="rounded-md border border-red-400/50 bg-red-500/10 px-4 py-3 text-red-200">
-            Nie udało się pobrać danych.
+            Nie udało się pobrać danych miejsc.
           </div>
         </div>
       </main>
@@ -85,17 +59,29 @@ export default async function AdminTurniejList() {
       <div className="w-full max-w-6xl rounded-2xl bg-slate-800/95 border border-slate-700 shadow-[0_14px_40px_rgba(0,0,0,0.8)] p-6 space-y-6">
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
           <div>
-            <h1 className="text-2xl font-semibold text-sky-50">Zarządzanie turniejami</h1>
-            <p className="mt-1 text-sm text-slate-400">Lista wszystkich turniejów w systemie</p>
+            <h1 className="text-2xl font-semibold text-sky-50">
+              Miejsca turniejów
+            </h1>
+            <p className="mt-1 text-sm text-slate-400">
+              Lista wszystkich zdefiniowanych lokalizacji, które możesz podpiąć
+              pod turnieje.
+            </p>
           </div>
           <Link
-            href="/turniej/new"
+            href="/admin/miejsca/new"
             className="rounded-full bg-sky-600 hover:bg-sky-500 px-6 py-2 text-sm font-semibold text-white transition flex items-center gap-2"
           >
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <svg
+              width="16"
+              height="16"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+            >
               <path d="M12 5v14M5 12h14" />
             </svg>
-            Dodaj turniej
+            Dodaj miejsce
           </Link>
         </div>
 
@@ -104,16 +90,19 @@ export default async function AdminTurniejList() {
             <thead className="bg-slate-700/50">
               <tr>
                 <th className="px-4 py-3 text-left text-sky-100 font-medium text-xs uppercase tracking-wider">
-                  Nazwa turnieju
+                  Miasto
                 </th>
                 <th className="px-4 py-3 text-left text-sky-100 font-medium text-xs uppercase tracking-wider">
-                  Data i godzina
+                  Nazwa miejsca
                 </th>
                 <th className="px-4 py-3 text-left text-sky-100 font-medium text-xs uppercase tracking-wider">
-                  Zakończenie
+                  Województwo
                 </th>
                 <th className="px-4 py-3 text-left text-sky-100 font-medium text-xs uppercase tracking-wider">
-                  Limit graczy
+                  Adres
+                </th>
+                <th className="px-4 py-3 text-left text-sky-100 font-medium text-xs uppercase tracking-wider">
+                  Współrzędne
                 </th>
                 <th className="px-4 py-3 text-left text-sky-100 font-medium text-xs uppercase tracking-wider">
                   Utworzono
@@ -126,65 +115,39 @@ export default async function AdminTurniejList() {
             <tbody className="divide-y divide-slate-600">
               {rows?.map((raw) => {
                 const r = raw as Row
-                const start = joinDateTime(r.data_turnieju, r.godzina_turnieju)
-
                 return (
-                  <tr key={r.id} className="hover:bg-slate-700/30 transition">
+                  <tr
+                    key={r.id}
+                    className="hover:bg-slate-700/30 transition"
+                  >
+                    <td className="px-4 py-3 text-sky-100">
+                      {r.miasto || '—'}
+                    </td>
                     <td className="px-4 py-3">
                       <Link
-                        href={`/admin/turniej/${r.id}/edit`}
+                        href={`/admin/miejsca/${r.id}/edit`}
                         className="text-sky-100 hover:text-sky-200 font-medium hover:underline"
                       >
                         {r.nazwa}
                       </Link>
                     </td>
-
-                    <td className="px-4 py-3 text-sky-100">
-                      {r.data_turnieju ? (
-                        <div className="space-y-1">
-                          <div className="text-sm">
-                            {start ? formatDatePL(start) : r.data_turnieju}
-                          </div>
-                          {r.godzina_turnieju && (
-                            <div className="text-xs text-slate-300">
-                              Start: {formatTimeHHMM(r.godzina_turnieju)}
-                            </div>
-                          )}
-                        </div>
-                      ) : (
-                        '—'
-                      )}
+                    <td className="px-4 py-3 text-slate-200 text-xs">
+                      {r.wojewodztwo || '—'}
                     </td>
-
-                    <td className="px-4 py-3 text-sky-100">
-                      {r.zakonczenie_turnieju ? (
-                        <span className="text-sm">
-                          {formatTimeHHMM(r.zakonczenie_turnieju)}
-                        </span>
-                      ) : (
-                        <span className="text-xs text-slate-500">nieustalone</span>
-                      )}
+                    <td className="px-4 py-3 text-slate-200 text-xs max-w-xs truncate">
+                      {r.adres || '—'}
                     </td>
-
-                    <td className="px-4 py-3 text-sky-100">
-                      {r.limit_graczy ? (
-                        <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-slate-700 text-sky-100">
-                          {r.limit_graczy} graczy
-                        </span>
-                      ) : (
-                        '—'
-                      )}
+                    <td className="px-4 py-3 text-slate-200 text-xs">
+                      {r.latitude?.toFixed(4)}, {r.longitude?.toFixed(4)}
                     </td>
-
-                    <td className="px-4 py-3 text-sky-100 text-sm">
+                    <td className="px-4 py-3 text-slate-200 text-xs">
                       {r.created_at
                         ? new Date(r.created_at).toLocaleDateString('pl-PL')
                         : '—'}
                     </td>
-
-                    <td className="px-4 py-3 text-right space-x-2">
+                    <td className="px-4 py-3 text-right">
                       <Link
-                        href={`/admin/turniej/${r.id}/edit`}
+                        href={`/admin/miejsca/${r.id}/edit`}
                         className="inline-flex items-center gap-1 rounded bg-sky-600 hover:bg-sky-500 px-3 py-1 text-xs font-medium text-white transition"
                       >
                         <svg
@@ -200,7 +163,7 @@ export default async function AdminTurniejList() {
                         </svg>
                         Edytuj
                       </Link>
-                      <DeleteTurniej id={r.id} nazwa={r.nazwa} />
+                      {/* Tutaj w przyszłości możesz dodać DeleteMiejsce tak jak DeleteTurniej */}
                     </td>
                   </tr>
                 )
@@ -210,7 +173,7 @@ export default async function AdminTurniejList() {
                 <tr>
                   <td
                     className="px-4 py-8 text-center text-slate-400 text-sm"
-                    colSpan={6}
+                    colSpan={7}
                   >
                     <div className="flex flex-col items-center gap-2">
                       <svg
@@ -228,12 +191,12 @@ export default async function AdminTurniejList() {
                         <line x1="16" y1="17" x2="8" y2="17" />
                         <polyline points="10,9 9,9 8,9" />
                       </svg>
-                      <p>Brak turniejów w systemie</p>
+                      <p>Brak zdefiniowanych miejsc turniejów</p>
                       <Link
-                        href="/turniej/new"
+                        href="/admin/miejsca/new"
                         className="text-sky-400 hover:text-sky-300 text-sm underline"
                       >
-                        Dodaj pierwszy turniej
+                        Dodaj pierwsze miejsce
                       </Link>
                     </div>
                   </td>
@@ -245,12 +208,12 @@ export default async function AdminTurniejList() {
 
         {rows && rows.length > 0 && (
           <div className="text-sm text-slate-400 text-center">
-            Znaleziono {rows.length} turniej
+            Znaleziono {rows.length} miejsc
             {rows.length === 1
-              ? ''
-              : rows.length > 1 && rows.length < 5
               ? 'e'
-              : 'y'}
+              : rows.length > 1 && rows.length < 5
+              ? 'a'
+              : ''}
           </div>
         )}
       </div>

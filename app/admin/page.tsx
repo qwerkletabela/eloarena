@@ -122,19 +122,19 @@ export default async function AdminPage() {
             </Link>
 
             <Link
-              href="/admin/gracz"
+              href="/admin/miejsca/new"
               className="group rounded-xl border border-slate-700 bg-slate-900/80 p-4 transition hover:border-sky-400/70 hover:bg-slate-900"
             >
               <div className="mb-2 flex items-center justify-between">
                 <h2 className="text-sm font-semibold text-sky-100">
-                  Gracze (lista / import)
+                  Zarządzaj miejscem turnieju.
                 </h2>
                 <span className="text-xs text-sky-300 group-hover:translate-x-0.5 transition-transform">
                   →
                 </span>
               </div>
               <p className="text-xs text-slate-300">
-                Przegląd i zarządzanie tabelą gracz, import z turniejów.
+                Przegląd i zarządzanie tabelą miejscem turnieju.
               </p>
             </Link>
           </section>
