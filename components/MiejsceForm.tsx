@@ -4,7 +4,6 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase/client'
-import MapPicker from '@/components/MapPicker'
 
 const WOJEWODZTWA = [
   'dolnośląskie',
@@ -53,19 +52,13 @@ export default function MiejsceForm({ mode, initial }: Props) {
   const [longitude, setLongitude] = useState(
     initial?.longitude ?? 19.0
   )
-  const [coordinatesInput, setCoordinatesInput] = useState('') // DODANE: stan dla pola współrzędnych
+  const [coordinatesInput, setCoordinatesInput] = useState('')
 
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState(false)
 
-  // Funkcja do aktualizacji współrzędnych z MapPicker
-  const handleLocationChange = (lat: number, lng: number) => {
-    setLatitude(lat)
-    setLongitude(lng)
-  }
-
-  // DODANE: Funkcja do parsowania wklejonych współrzędnych
+  // Funkcja do parsowania wklejonych współrzędnych
   const handleCoordinatesPaste = () => {
     if (!coordinatesInput.trim()) return
     
@@ -114,7 +107,7 @@ export default function MiejsceForm({ mode, initial }: Props) {
     setAdres('')
     setLatitude(52.0)
     setLongitude(19.0)
-    setCoordinatesInput('') // DODANE: wyczyść też pole współrzędnych
+    setCoordinatesInput('')
     setError(null)
     setSuccess(false)
   }
@@ -282,18 +275,18 @@ export default function MiejsceForm({ mode, initial }: Props) {
         />
       </div>
 
-      {/* Współrzędne + MAPA */}
+      {/* Współrzędne - BEZ MAPY */}
       <div className="rounded-xl border border-slate-700 bg-slate-900/40 p-4 space-y-4">
         <div className="flex items-center justify-between gap-2">
           <h2 className="text-sm font-semibold text-sky-100">
             Współrzędne geograficzne
           </h2>
           <span className="text-xs text-slate-400">
-            kliknij na mapie albo popraw ręcznie
+            wprowadź ręcznie lub wklej współrzędne
           </span>
         </div>
 
-        {/* DODANE: Pole do wklejania współrzędnych */}
+        {/* Pole do wklejania współrzędnych */}
         <div className="space-y-2">
           <label className="text-xs font-medium text-slate-300">
             Wklej współrzędne (szerokość, długość)
@@ -304,7 +297,7 @@ export default function MiejsceForm({ mode, initial }: Props) {
               className="flex-1 rounded-md border border-slate-600 bg-slate-900/60 px-3 py-2 text-sm text-sky-50"
               value={coordinatesInput}
               onChange={(e) => setCoordinatesInput(e.target.value)}
-              placeholder="np. 50.0655081342395, 19.92542285490674"
+              placeholder=""
             />
             <button
               type="button"
@@ -319,21 +312,7 @@ export default function MiejsceForm({ mode, initial }: Props) {
           </p>
         </div>
 
-        {/* MapPicker – klikanie ustawia latitude/longitude */}
-        <div className="h-64 w-full overflow-hidden rounded-lg border border-slate-700">
-          <div className="h-full w-full flex items-center justify-center bg-slate-800">
-            <MapPicker
-              targetLatId="latitude-input"
-              targetLngId="longitude-input"
-              lat={latitude}
-              lng={longitude}
-              buttonLabel="Wybierz na mapie"
-              onLocationChange={handleLocationChange}
-            />
-          </div>
-        </div>
-
-        {/* Inputs liczbowy jako podgląd / ręczna korekta */}
+        {/* Inputy liczbowe do ręcznego wprowadzania współrzędnych */}
         <div className="grid gap-4 md:grid-cols-2">
           <div className="space-y-1">
             <label className="text-xs font-medium text-slate-300">
@@ -366,7 +345,7 @@ export default function MiejsceForm({ mode, initial }: Props) {
         </div>
 
         <p className="text-xs text-slate-400">
-          Kliknięcie na mapie przeniesie pinezkę i zaktualizuje pola ze współrzędnymi.
+          Wprowadź współrzędne ręcznie lub wklej je w powyższym polu.
         </p>
       </div>
 

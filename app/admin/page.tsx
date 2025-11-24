@@ -122,7 +122,7 @@ export default async function AdminPage() {
             </Link>
 
             <Link
-              href="/admin/miejsca/new"
+              href="/admin/miejsca/"
               className="group rounded-xl border border-slate-700 bg-slate-900/80 p-4 transition hover:border-sky-400/70 hover:bg-slate-900"
             >
               <div className="mb-2 flex items-center justify-between">
