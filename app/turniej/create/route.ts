@@ -94,10 +94,10 @@ export async function POST(req: NextRequest) {
     gsheet_id = extractSheetId(gsheet_url)
   }
 
-  // Verify that the location exists
+  // Verify that the location exists and get location details
   const { data: location, error: locationError } = await supabase
     .from('miejsce_turnieju')
-    .select('id')
+    .select('id, nazwa, miasto')
     .eq('id', miejsce_id)
     .single()
 
@@ -117,7 +117,6 @@ export async function POST(req: NextRequest) {
     kolumna_nazwisk,
     pierwszy_wiersz_z_nazwiskiem,
     limit_graczy,
-    // Usunięte: lat i lng - używamy współrzędnych z miejsca_turnieju
     miejsce_id,
     created_by: user.id,
   }
@@ -130,5 +129,13 @@ export async function POST(req: NextRequest) {
     return NextResponse.redirect(new URL('/turniej/new?e=database_error', origin), { status: 303 })
   }
 
-  return NextResponse.redirect(new URL('/admin?ok=1', origin), { status: 303 })
+  // Przekierowanie z danymi do modala
+  const params = new URLSearchParams({
+    ok: '1',
+    nazwa: encodeURIComponent(nazwa),
+    data: encodeURIComponent(data_turnieju),
+    miejsce: encodeURIComponent(`${location.nazwa} - ${location.miasto}`)
+  })
+
+  return NextResponse.redirect(new URL(`/turniej/new?${params.toString()}`, origin), { status: 303 })
 }

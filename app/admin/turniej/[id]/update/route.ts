@@ -20,7 +20,6 @@ export async function POST(
     
     if (!id || !UUID_RE.test(id)) {
       console.log('❌ Invalid tournament ID')
-      // ZMIENIONE: przekierowanie do /admin/turniej/[id]/edit
       return NextResponse.redirect(new URL(`/admin/turniej/${id}/edit?e=invalid_id`, origin), { status: 303 })
     }
 
@@ -70,33 +69,30 @@ export async function POST(
     // Walidacja podstawowych pól
     if (!nazwa || !data_turnieju || !godzina_turnieju) {
       console.log('❌ Missing required fields')
-      // ZMIENIONE: przekierowanie do /admin/turniej/[id]/edit
       return NextResponse.redirect(new URL(`/admin/turniej/${id}/edit?e=invalid_input`, origin), { status: 303 })
     }
 
     // Walidacja miejsca
     if (!miejsce_id) {
       console.log('❌ No place ID provided')
-      // ZMIENIONE: przekierowanie do /admin/turniej/[id]/edit
       return NextResponse.redirect(new URL(`/admin/turniej/${id}/edit?e=miejsce_required`, origin), { status: 303 })
     }
 
-    // Sprawdź czy miejsce istnieje w bazie
+    // Sprawdź czy miejsce istnieje w bazie - TYLKO sprawdzamy ID, nie potrzebujemy współrzędnych
     const { data: miejsce, error: miejsceError } = await supabase
       .from('miejsce_turnieju')
-      .select('id, latitude, longitude')
+      .select('id')
       .eq('id', miejsce_id)
       .single()
 
     if (miejsceError || !miejsce) {
       console.log('❌ Place not found:', miejsce_id)
-      // ZMIENIONE: przekierowanie do /admin/turniej/[id]/edit
       return NextResponse.redirect(new URL(`/admin/turniej/${id}/edit?e=place_not_found`, origin), { status: 303 })
     }
 
-    console.log('✅ Place exists:', miejsce_id, 'with coords:', { lat: miejsce.latitude, lng: miejsce.longitude })
+    console.log('✅ Place exists:', miejsce_id)
 
-    // Przygotowanie danych
+    // Przygotowanie danych - NIE ZAPISUJEMY współrzędnych do turniej!
     const updates: Record<string, any> = {
       nazwa, 
       data_turnieju, 
@@ -109,11 +105,10 @@ export async function POST(
       pierwszy_wiersz_z_nazwiskiem,
       limit_graczy,
       miejsce_id,
-      lat: miejsce.latitude,
-      lng: miejsce.longitude,
+      // USUNIĘTE: lat i lng - współrzędne będziemy pobierać przez relację z miejsca
     }
 
-    console.log('💾 Final updates:', updates)
+    console.log('💾 Final updates (NO COORDINATES):', updates)
 
     // Aktualizacja
     const { data, error } = await supabase
@@ -124,18 +119,15 @@ export async function POST(
 
     if (error) {
       console.error('❌ Database error:', error)
-      // ZMIENIONE: przekierowanie do /admin/turniej/[id]/edit
       return NextResponse.redirect(new URL(`/admin/turniej/${id}/edit?e=save_failed`, origin), { status: 303 })
     }
 
-    console.log('✅ Full update successful:', data)
-    // ZMIENIONE: przekierowanie do /admin/turniej/[id]/edit
+    console.log('✅ Full update successful (without coordinates):', data)
     return NextResponse.redirect(new URL(`/admin/turniej/${id}/edit?ok=1`, origin), { status: 303 })
 
   } catch (error) {
     console.error('💥 Unexpected error in route:', error)
     const params = await context.params
-    // ZMIENIONE: przekierowanie do /admin/turniej/[id]/edit
     return NextResponse.redirect(new URL(`/admin/turniej/${params.id}/edit?e=server_error`, req.nextUrl.origin), { status: 303 })
   }
 }
