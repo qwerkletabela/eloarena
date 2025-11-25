@@ -46,7 +46,10 @@ export default async function NewTurniejPage({ searchParams }: { searchParams: S
                 sheet_col_invalid: 'Kolumna nazwisk musi być literą (A–Z).',
                 number_invalid: 'Nieprawidłowa wartość liczbowa.',
                 url_invalid: 'Link musi zaczynać się od http(s)://',
-                miejsce_required: 'Wybierz miejsce turnieju.',
+                location_required: 'Wybierz miejsce turnieju.',
+                invalid_location_id: 'Nieprawidłowy identyfikator miejsca.',
+                location_not_found: 'Wybrane miejsce nie istnieje.',
+                database_error: 'Błąd bazy danych podczas zapisywania.',
               }[err] ?? 'Nie udało się zapisać.'}
             </div>
           </AutoHide>
@@ -98,7 +101,7 @@ export default async function NewTurniejPage({ searchParams }: { searchParams: S
           <div>
             <label className="block text-sm font-medium text-sky-100">Miejsce turnieju *</label>
             <select 
-              name="miejsce_turnieju_id" 
+              name="miejsce_id" 
               required
               className="mt-1 w-full rounded border border-slate-600 bg-slate-900/80 px-3 py-2 text-sky-100 focus:border-sky-500 focus:ring-1 focus:ring-sky-500"
             >

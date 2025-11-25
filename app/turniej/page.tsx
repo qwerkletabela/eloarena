@@ -11,8 +11,15 @@ type Row = {
   zakonczenie_turnieju: string | null  // HH:MM[:SS]
   gsheet_url: string | null
   limit_graczy: number | null
-  lat: number | null
-  lng: number | null
+  miejsce_turnieju: {
+    id: string
+    nazwa: string
+    miasto: string
+    wojewodztwo: string | null
+    adres: string | null
+    latitude: number | null
+    longitude: number | null
+  } | null
 }
 
 function joinDateTime(d: string | null, t: string | null): Date | null {
@@ -153,13 +160,18 @@ function createGoogleCalendarUrl(r: Row): string | null {
   if (r.limit_graczy) details.push(`Limit graczy: ${r.limit_graczy}`)
   if (r.gsheet_url) details.push(`Arkusz Google: ${r.gsheet_url}`)
   if (r.zakonczenie_turnieju) details.push(`Zakończenie: ${formatTimeHHMM(r.zakonczenie_turnieju)}`)
+  if (r.miejsce_turnieju) {
+    details.push(`Miejsce: ${r.miejsce_turnieju.nazwa}, ${r.miejsce_turnieju.miasto}`)
+  }
 
   const params = new URLSearchParams({
     action: 'TEMPLATE',
     text: r.nazwa,
     dates: `${startTime}/${endTime}`,
     details: details.join('\n'),
-    location: r.lat && r.lng ? `https://maps.google.com/?q=${r.lat},${r.lng}` : '',
+    location: r.miejsce_turnieju?.latitude && r.miejsce_turnieju?.longitude 
+      ? `https://maps.google.com/?q=${r.miejsce_turnieju.latitude},${r.miejsce_turnieju.longitude}`
+      : r.miejsce_turnieju?.adres || '',
     ctz: 'Europe/Warsaw',
   })
 
@@ -174,6 +186,11 @@ function TournamentCard({ r }: { r: Row }) {
   const badge = statusBadge(start, end)
   const calendarUrl = createGoogleCalendarUrl(r)
 
+  // Bezpieczne sprawdzenie współrzędnych
+  const hasCoordinates = r.miejsce_turnieju?.latitude !== null && 
+                         r.miejsce_turnieju?.longitude !== null &&
+                         r.miejsce_turnieju !== null
+
   return (
     <details className="group rounded-xl border border-slate-600/70 bg-slate-900/70 px-4 py-3 shadow-sm open:shadow-md transition-shadow">
       <summary className="flex cursor-pointer list-none items-center justify-between gap-3">
@@ -187,6 +204,7 @@ function TournamentCard({ r }: { r: Row }) {
                 {formatDatePL(start)} •{' '}
                 {formatTimeHHMM(r.godzina_turnieju)}
                 {end && ` - ${formatTimeHHMM(r.zakonczenie_turnieju)}`}
+                {r.miejsce_turnieju && <> • {r.miejsce_turnieju.nazwa}, {r.miejsce_turnieju.miasto}</>}
                 {r.limit_graczy ? <> • limit: {r.limit_graczy}</> : null}
               </>
             ) : (
@@ -222,6 +240,14 @@ function TournamentCard({ r }: { r: Row }) {
                 ? formatTimeHHMM(r.zakonczenie_turnieju)
                 : 'nieustalona'}
             </li>
+            {r.miejsce_turnieju && (
+              <li>
+                <span className="opacity-70">Miejsce:</span>{' '}
+                {r.miejsce_turnieju.nazwa}, {r.miejsce_turnieju.miasto}
+                {r.miejsce_turnieju.wojewodztwo && `, ${r.miejsce_turnieju.wojewodztwo}`}
+                {r.miejsce_turnieju.adres && ` (${r.miejsce_turnieju.adres})`}
+              </li>
+            )}
             {r.limit_graczy && (
               <li>
                 <span className="opacity-70">Limit graczy:</span>{' '}
@@ -293,12 +319,12 @@ function TournamentCard({ r }: { r: Row }) {
         {/* mini mapa (tylko jeśli są współrzędne) */}
         <div className="space-y-2">
           <div className="text-sm font-medium text-sky-100">Lokalizacja</div>
-          {r.lat !== null && r.lng !== null ? (
+          {hasCoordinates && r.miejsce_turnieju ? (
             <div className="overflow-hidden rounded-lg border border-slate-600 bg-slate-900">
               <div className="aspect-[16/9]">
                 <iframe
                   title={`Mapa ${r.nazwa}`}
-                  src={`https://www.google.com/maps?q=${r.lat},${r.lng}&z=14&output=embed`}
+                  src={`https://www.google.com/maps?q=${r.miejsce_turnieju.latitude},${r.miejsce_turnieju.longitude}&z=14&output=embed`}
                   className="h-full w-full"
                   loading="lazy"
                   referrerPolicy="no-referrer-when-downgrade"
@@ -307,7 +333,7 @@ function TournamentCard({ r }: { r: Row }) {
               <div className="border-t border-slate-700 bg-slate-900/90 p-2">
                 <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
                   <a
-                    href={`https://www.google.com/maps/search/?api=1&query=${r.lat},${r.lng}`}
+                    href={`https://www.google.com/maps/search/?api=1&query=${r.miejsce_turnieju.latitude},${r.miejsce_turnieju.longitude}`}
                     target="_blank"
                     rel="noreferrer"
                     className="text-xs font-medium text-sky-300 hover:text-sky-100 hover:underline"
@@ -316,7 +342,7 @@ function TournamentCard({ r }: { r: Row }) {
                   </a>
                   <div className="flex gap-2">
                     <a
-                      href={`https://www.google.com/maps/dir/?api=1&destination=${r.lat},${r.lng}`}
+                      href={`https://www.google.com/maps/dir/?api=1&destination=${r.miejsce_turnieju.latitude},${r.miejsce_turnieju.longitude}`}
                       target="_blank"
                       rel="noreferrer"
                       className="inline-flex items-center gap-1 rounded-full bg-green-600 hover:bg-green-500 px-3 py-1 text-xs font-medium text-white transition"
@@ -337,9 +363,13 @@ function TournamentCard({ r }: { r: Row }) {
                 </div>
               </div>
             </div>
+          ) : r.miejsce_turnieju ? (
+            <div className="rounded-md border border-slate-600 bg-slate-900/80 px-3 py-2 text-sm text-sky-100/80">
+              Brak współrzędnych dla miejsca: {r.miejsce_turnieju.nazwa}
+            </div>
           ) : (
             <div className="rounded-md border border-slate-600 bg-slate-900/80 px-3 py-2 text-sm text-sky-100/80">
-              Brak współrzędnych.
+              Brak przypisanego miejsca.
             </div>
           )}
         </div>
@@ -352,11 +382,27 @@ export default async function TurniejListPage() {
   const supabase = await createSupabaseServer()
   const { data: rows } = await supabase
     .from('turniej')
-    .select(
-      'id,nazwa,data_turnieju,godzina_turnieju,zakonczenie_turnieju,gsheet_url,arkusz_nazwa,limit_graczy,lat,lng'
-    )
-  .order('data_turnieju', { ascending: true })
-  .limit(200)
+    .select(`
+      id,
+      nazwa,
+      data_turnieju,
+      godzina_turnieju,
+      zakonczenie_turnieju,
+      gsheet_url,
+      arkusz_nazwa,
+      limit_graczy,
+      miejsce_turnieju (
+        id,
+        nazwa,
+        miasto,
+        wojewodztwo,
+        adres,
+        latitude,
+        longitude
+      )
+    `)
+    .order('data_turnieju', { ascending: true })
+    .limit(200)
 
   const futureTournaments: Row[] = []
   const pastTournaments: Row[] = []

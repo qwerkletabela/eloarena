@@ -48,12 +48,6 @@ export async function POST(req: NextRequest) {
   const limit_graczy_raw = fd.get('limit_graczy')
   const limit_graczy = limit_graczy_raw ? Number(limit_graczy_raw) : null
 
-  // Coordinates
-  const lat_raw = fd.get('lat')
-  const lng_raw = fd.get('lng')
-  const lat = lat_raw !== null && String(lat_raw) !== '' ? Number(lat_raw) : null
-  const lng = lng_raw !== null && String(lng_raw) !== '' ? Number(lng_raw) : null
-
   // Location ID - this is the crucial field
   const miejsce_id = String(fd.get('miejsce_id') || '').trim()
 
@@ -91,8 +85,6 @@ export async function POST(req: NextRequest) {
   if (limit_graczy !== null && (!Number.isFinite(limit_graczy) || limit_graczy < 1)) {
     return NextResponse.redirect(new URL('/turniej/new?e=number_invalid', origin), { status: 303 })
   }
-  if (lat !== null && !Number.isFinite(lat)) return NextResponse.redirect(new URL('/turniej/new?e=number_invalid', origin), { status: 303 })
-  if (lng !== null && !Number.isFinite(lng)) return NextResponse.redirect(new URL('/turniej/new?e=number_invalid', origin), { status: 303 })
 
   let gsheet_url = gsheet_url_raw
   if (gsheet_url && !urlRe.test(gsheet_url)) {
@@ -114,7 +106,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.redirect(new URL('/turniej/new?e=location_not_found', origin), { status: 303 })
   }
 
-  const payload: Record<string, any> = {
+  const payload = {
     nazwa,
     data_turnieju,
     godzina_turnieju,
@@ -125,16 +117,17 @@ export async function POST(req: NextRequest) {
     kolumna_nazwisk,
     pierwszy_wiersz_z_nazwiskiem,
     limit_graczy,
-    lat,
-    lng,
-    miejsce_id, // This should now be properly set
+    // Usunięte: lat i lng - używamy współrzędnych z miejsca_turnieju
+    miejsce_id,
     created_by: user.id,
   }
+
+  console.log('Inserting tournament with payload:', payload)
 
   const { error } = await supabase.from('turniej').insert(payload)
   if (error) {
     console.error('insert turniej error', error)
-    return NextResponse.redirect(new URL('/turniej/new?e=invalid_input', origin), { status: 303 })
+    return NextResponse.redirect(new URL('/turniej/new?e=database_error', origin), { status: 303 })
   }
 
   return NextResponse.redirect(new URL('/admin?ok=1', origin), { status: 303 })
