@@ -1,6 +1,6 @@
+// app/turniej/new/page.tsx
 import { redirect } from 'next/navigation'
 import { createSupabaseServer } from '@/lib/supabase/server'
-import MapPicker from '@/components/MapPicker'
 import AutoHide from '@/components/AutoHide'
 
 type SearchParams = Promise<Record<string, string | string[] | undefined>>
@@ -18,6 +18,12 @@ export default async function NewTurniejPage({ searchParams }: { searchParams: S
   if (!user) redirect('/auth/signin')
   const { data: isAdmin } = await supabase.rpc('is_admin')
   if (!isAdmin) redirect('/')
+
+  // Pobierz istniejące miejsca turnieju
+  const { data: miejsca } = await supabase
+    .from('miejsce_turnieju')
+    .select('id, nazwa, miasto, wojewodztwo, adres')
+    .order('nazwa', { ascending: true })
 
   return (
     <main className="flex min-h-[calc(100vh-4rem)] items-center justify-center px-4 py-8 bg-slate-900">
@@ -40,6 +46,7 @@ export default async function NewTurniejPage({ searchParams }: { searchParams: S
                 sheet_col_invalid: 'Kolumna nazwisk musi być literą (A–Z).',
                 number_invalid: 'Nieprawidłowa wartość liczbowa.',
                 url_invalid: 'Link musi zaczynać się od http(s)://',
+                miejsce_required: 'Wybierz miejsce turnieju.',
               }[err] ?? 'Nie udało się zapisać.'}
             </div>
           </AutoHide>
@@ -84,6 +91,37 @@ export default async function NewTurniejPage({ searchParams }: { searchParams: S
                 name="zakonczenie_turnieju" 
                 className="mt-1 w-full rounded border border-slate-600 bg-slate-900/80 px-3 py-2 text-sky-100 focus:border-sky-500 focus:ring-1 focus:ring-sky-500" 
               />
+            </div>
+          </div>
+
+          {/* Miejsce turnieju */}
+          <div>
+            <label className="block text-sm font-medium text-sky-100">Miejsce turnieju *</label>
+            <select 
+              name="miejsce_turnieju_id" 
+              required
+              className="mt-1 w-full rounded border border-slate-600 bg-slate-900/80 px-3 py-2 text-sky-100 focus:border-sky-500 focus:ring-1 focus:ring-sky-500"
+            >
+              <option value="">— wybierz miejsce turnieju —</option>
+              {miejsca?.map((miejsce) => (
+                <option key={miejsce.id} value={miejsce.id}>
+                  {miejsce.nazwa} - {miejsce.miasto}
+                  {miejsce.wojewodztwo && `, ${miejsce.wojewodztwo}`}
+                </option>
+              ))}
+            </select>
+            <div className="mt-2 flex justify-between items-center">
+              <p className="text-xs text-slate-400">
+                Jeśli nie ma odpowiedniego miejsca, dodaj je najpierw w panelu administracyjnym.
+              </p>
+              <a 
+                href="/admin/miejsca/new" 
+                className="text-xs text-sky-400 hover:text-sky-300 hover:underline"
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                Dodaj nowe miejsce →
+              </a>
             </div>
           </div>
 
@@ -139,42 +177,6 @@ export default async function NewTurniejPage({ searchParams }: { searchParams: S
                 name="limit_graczy" 
                 min={1} 
                 className="mt-1 w-full rounded border border-slate-600 bg-slate-900/80 px-3 py-2 text-sky-100 focus:border-sky-500 focus:ring-1 focus:ring-sky-500" 
-              />
-            </div>
-          </div>
-
-          {/* Lokalizacja - współrzędne i mapa */}
-          <div className="space-y-3">
-            <label className="block text-sm font-medium text-sky-100">Lokalizacja turnieju</label>
-            <div className="rounded-lg border border-slate-600 bg-slate-900/80 p-4">
-              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 mb-4">
-                <div>
-                  <label className="block text-xs font-medium text-sky-200 mb-1">Szerokość (lat)</label>
-                  <input 
-                    id="lat" 
-                    name="lat" 
-                    className="w-full rounded border border-slate-600 bg-slate-800 px-3 py-2 text-sm text-sky-100 placeholder:text-slate-500 focus:border-sky-500 focus:ring-1 focus:ring-sky-500" 
-                    placeholder="52.2297" 
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs font-medium text-sky-200 mb-1">Długość (lng)</label>
-                  <input 
-                    id="lng" 
-                    name="lng" 
-                    className="w-full rounded border border-slate-600 bg-slate-800 px-3 py-2 text-sm text-sky-100 placeholder:text-slate-500 focus:border-sky-500 focus:ring-1 focus:ring-sky-500" 
-                    placeholder="21.0122" 
-                  />
-                </div>
-              </div>
-              
-              {/* Przycisk do otwarcia mapy */}
-              <MapPicker
-                targetLatId="lat"
-                targetLngId="lng"
-                lat={null}
-                lng={null}
-                buttonLabel="Ustaw pinezkę na mapie"
               />
             </div>
           </div>

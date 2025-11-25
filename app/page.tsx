@@ -20,12 +20,15 @@ export default async function HomePage() {
   const [
     { count: tournamentsCount },
     { count: playersCount },
-    { count: usersCount }
+    { data: usersCount, error: usersError }
   ] = await Promise.all([
     supabase.from('turniej').select('*', { count: 'exact', head: true }),
     supabase.from('gracz').select('*', { count: 'exact', head: true }),
-    supabase.from('profiles').select('*', { count: 'exact', head: true })
+    supabase.rpc('get_users_count')
   ])
+
+  // Obsługa błędów dla liczby użytkowników
+  const totalUsers = usersError ? 0 : (usersCount || 0)
 
   return (
     <main className="flex flex-col min-h-[calc(100vh-4rem)]">
@@ -53,7 +56,7 @@ export default async function HomePage() {
               <div className="text-sm text-slate-400 mt-2">Graczy</div>
             </div>
             <div className="rounded-2xl bg-slate-800/80 border border-slate-700 p-6 text-center">
-              <div className="text-3xl font-bold text-sky-400">{usersCount || 0}</div>
+              <div className="text-3xl font-bold text-sky-400">{totalUsers}</div>
               <div className="text-sm text-slate-400 mt-2">Użytkowników</div>
             </div>
           </div>

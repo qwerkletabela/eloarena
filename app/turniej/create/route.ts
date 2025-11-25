@@ -3,6 +3,7 @@ import { createSupabaseServerMutable } from '@/lib/supabase/server-mutable'
 
 const urlRe = /^https?:\/\/\S+$/i
 const sheetColRe = /^[A-Za-z]$/
+const uuidRe = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 
 function extractSheetId(url: string): string | null {
   try {
@@ -27,10 +28,11 @@ export async function POST(req: NextRequest) {
 
   const fd = await req.formData()
 
+  // Tournament data
   const nazwa = String(fd.get('nazwa') || '').trim()
   const data_turnieju = String(fd.get('data_turnieju') || '').trim()
   const godzina_turnieju = String(fd.get('godzina_turnieju') || '').trim()
-  const zakonczenie_turnieju = String(fd.get('zakonczenie_turnieju') || '').trim() || null // DODANE NOWE POLE
+  const zakonczenie_turnieju = String(fd.get('zakonczenie_turnieju') || '').trim() || null
 
   const gsheet_url_raw = String(fd.get('gsheet_url') || '').trim() || null
   let gsheet_id = String(fd.get('gsheet_id') || '').trim() || null
@@ -46,16 +48,40 @@ export async function POST(req: NextRequest) {
   const limit_graczy_raw = fd.get('limit_graczy')
   const limit_graczy = limit_graczy_raw ? Number(limit_graczy_raw) : null
 
+  // Coordinates
   const lat_raw = fd.get('lat')
   const lng_raw = fd.get('lng')
   const lat = lat_raw !== null && String(lat_raw) !== '' ? Number(lat_raw) : null
   const lng = lng_raw !== null && String(lng_raw) !== '' ? Number(lng_raw) : null
 
-  // walidacje
+  // Location ID - this is the crucial field
+  const miejsce_id = String(fd.get('miejsce_id') || '').trim()
+
+  console.log('Form data received:', {
+    nazwa,
+    data_turnieju,
+    godzina_turnieju,
+    miejsce_id,
+    wszystkieFields: Array.from(fd.keys())
+  })
+
+  // Validations
   if (!nazwa) return NextResponse.redirect(new URL('/turniej/new?e=invalid_input', origin), { status: 303 })
   if (!data_turnieju || !godzina_turnieju) {
     return NextResponse.redirect(new URL('/turniej/new?e=date_time_required', origin), { status: 303 })
   }
+  
+  // Validate that miejsce_id is provided and is a valid UUID
+  if (!miejsce_id) {
+    console.error('miejsce_id is missing from form data')
+    return NextResponse.redirect(new URL('/turniej/new?e=location_required', origin), { status: 303 })
+  }
+  
+  if (!uuidRe.test(miejsce_id)) {
+    console.error('miejsce_id is not a valid UUID:', miejsce_id)
+    return NextResponse.redirect(new URL('/turniej/new?e=invalid_location_id', origin), { status: 303 })
+  }
+
   if (kolumna_nazwisk && !sheetColRe.test(kolumna_nazwisk)) {
     return NextResponse.redirect(new URL('/turniej/new?e=sheet_col_invalid', origin), { status: 303 })
   }
@@ -76,11 +102,23 @@ export async function POST(req: NextRequest) {
     gsheet_id = extractSheetId(gsheet_url)
   }
 
+  // Verify that the location exists
+  const { data: location, error: locationError } = await supabase
+    .from('miejsce_turnieju')
+    .select('id')
+    .eq('id', miejsce_id)
+    .single()
+
+  if (locationError || !location) {
+    console.error('Location not found:', miejsce_id, locationError)
+    return NextResponse.redirect(new URL('/turniej/new?e=location_not_found', origin), { status: 303 })
+  }
+
   const payload: Record<string, any> = {
     nazwa,
     data_turnieju,
     godzina_turnieju,
-    zakonczenie_turnieju, // DODANE DO PAYLOAD
+    zakonczenie_turnieju,
     gsheet_url,
     gsheet_id,
     arkusz_nazwa,
@@ -89,6 +127,7 @@ export async function POST(req: NextRequest) {
     limit_graczy,
     lat,
     lng,
+    miejsce_id, // This should now be properly set
     created_by: user.id,
   }
 

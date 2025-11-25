@@ -174,8 +174,6 @@ function TournamentCard({ r }: { r: Row }) {
   const badge = statusBadge(start, end)
   const calendarUrl = createGoogleCalendarUrl(r)
 
-  const isInProgressInline = badge?.text === 'w trakcie' && !!end
-
   return (
     <details className="group rounded-xl border border-slate-600/70 bg-slate-900/70 px-4 py-3 shadow-sm open:shadow-md transition-shadow">
       <summary className="flex cursor-pointer list-none items-center justify-between gap-3">
@@ -188,9 +186,7 @@ function TournamentCard({ r }: { r: Row }) {
               <>
                 {formatDatePL(start)} •{' '}
                 {formatTimeHHMM(r.godzina_turnieju)}
-                {isInProgressInline && ' — w trakcie — '}
-                {end && formatTimeHHMM(r.zakonczenie_turnieju)}
-                {!isInProgressInline && end && ' - ' + formatTimeHHMM(r.zakonczenie_turnieju)}
+                {end && ` - ${formatTimeHHMM(r.zakonczenie_turnieju)}`}
                 {r.limit_graczy ? <> • limit: {r.limit_graczy}</> : null}
               </>
             ) : (
