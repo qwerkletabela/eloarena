@@ -3,7 +3,18 @@ import { createSupabaseServer } from '@/lib/supabase/server'
 export const dynamic = 'force-dynamic'
 export const revalidate = 0
 
-type Row = {
+// Typy
+type MiejsceTurnieju = {
+  id: string
+  nazwa: string
+  miasto: string
+  wojewodztwo: string | null
+  adres: string | null
+  latitude: number | null
+  longitude: number | null
+}
+
+type TurniejRow = {
   id: string
   nazwa: string
   data_turnieju: string | null
@@ -12,16 +23,22 @@ type Row = {
   gsheet_url: string | null
   limit_graczy: number | null
   miejsce_id: string | null
-  // UJEDNOLICONE: miejsce_turnieju jako pojedynczy obiekt (nie tablica)
-  miejsce_turnieju: {
-    id: string
-    nazwa: string
-    miasto: string
-    wojewodztwo: string | null
-    adres: string | null
-    latitude: number | null
-    longitude: number | null
-  } | null
+  miejsce_turnieju: MiejsceTurnieju | null
+}
+
+// Funkcja pomocnicza do bezpiecznego rzutowania miejsca
+function safeMiejsceTurnieju(miejsce: any): MiejsceTurnieju | null {
+  if (!miejsce || typeof miejsce !== 'object') return null
+  
+  return {
+    id: String(miejsce.id || ''),
+    nazwa: String(miejsce.nazwa || ''),
+    miasto: String(miejsce.miasto || ''),
+    wojewodztwo: miejsce.wojewodztwo ? String(miejsce.wojewodztwo) : null,
+    adres: miejsce.adres ? String(miejsce.adres) : null,
+    latitude: typeof miejsce.latitude === 'number' ? miejsce.latitude : null,
+    longitude: typeof miejsce.longitude === 'number' ? miejsce.longitude : null
+  }
 }
 
 function joinDateTime(d: string | null, t: string | null): Date | null {
@@ -47,21 +64,6 @@ function formatDatePL(d: Date) {
 function formatTimeHHMM(raw: string | null) {
   if (!raw) return '00:00'
   return raw.slice(0, 5)
-}
-
-function isPastTournament(start: Date | null, end: Date | null): boolean {
-  if (!start) return false
-  const now = new Date()
-  const sixHours = 6 * 60 * 60 * 1000
-
-  if (end) {
-    return now.getTime() > end.getTime()
-  }
-
-  if (now.getTime() - start.getTime() > sixHours) {
-    return true
-  }
-  return false
 }
 
 function statusBadge(start: Date | null, end: Date | null) {
@@ -121,281 +123,92 @@ function statusBadge(start: Date | null, end: Date | null) {
   }
 }
 
-function createGoogleCalendarUrl(r: Row): string | null {
-  if (!r.data_turnieju) return null
-
-  const start = joinDateTime(r.data_turnieju, r.godzina_turnieju)
-  if (!start) return null
-
-  const formatDateForGoogle = (date: Date) =>
-    date.toISOString().replace(/-|:|\.\d+/g, '').slice(0, 15) + 'Z'
-
-  const startTime = formatDateForGoogle(start)
-
-  let end: Date
-  if (r.zakonczenie_turnieju) {
-    const e = joinDateTime(r.data_turnieju, r.zakonczenie_turnieju)
-    end = e ?? new Date(start.getTime() + 3 * 60 * 60 * 1000)
-  } else {
-    end = new Date(start.getTime() + 3 * 60 * 60 * 1000)
-  }
-  const endTime = formatDateForGoogle(end)
-
-  const details: string[] = []
-  if (r.limit_graczy) details.push(`Limit graczy: ${r.limit_graczy}`)
-  if (r.gsheet_url) details.push(`Arkusz Google: ${r.gsheet_url}`)
-  if (r.zakonczenie_turnieju) details.push(`Zakończenie: ${formatTimeHHMM(r.zakonczenie_turnieju)}`)
-  
-  // UJEDNOLICONE: dostęp do pojedynczego obiektu
-  if (r.miejsce_turnieju) {
-    details.push(`Miejsce: ${r.miejsce_turnieju.nazwa}, ${r.miejsce_turnieju.miasto}`)
-  }
-
-  const location = r.miejsce_turnieju?.latitude && r.miejsce_turnieju?.longitude 
-    ? `https://maps.google.com/?q=${r.miejsce_turnieju.latitude},${r.miejsce_turnieju.longitude}`
-    : r.miejsce_turnieju?.adres || ''
-
-  const params = new URLSearchParams({
-    action: 'TEMPLATE',
-    text: r.nazwa,
-    dates: `${startTime}/${endTime}`,
-    details: details.join('\n'),
-    location: location,
-    ctz: 'Europe/Warsaw',
-  })
-
-  return `https://calendar.google.com/calendar/render?${params.toString()}`
-}
-
-function TournamentCard({ r }: { r: Row }) {
+function TournamentCard({ r }: { r: TurniejRow }) {
   const start = joinDateTime(r.data_turnieju, r.godzina_turnieju)
   const end = r.zakonczenie_turnieju
     ? joinDateTime(r.data_turnieju, r.zakonczenie_turnieju)
     : null
   const badge = statusBadge(start, end)
-  const calendarUrl = createGoogleCalendarUrl(r)
-
-  // UJEDNOLICONE: dostęp do pojedynczego obiektu
+  
   const miejsce = r.miejsce_turnieju
 
-  // Sprawdzanie czy mamy poprawne współrzędne
-  const hasValidCoordinates = () => {
-    if (!miejsce) return false
-    if (miejsce.latitude === null || miejsce.longitude === null) return false
-    
-    const lat = Number(miejsce.latitude)
-    const lng = Number(miejsce.longitude)
-    
-    return !isNaN(lat) && !isNaN(lng) && 
-           lat >= -90 && lat <= 90 && 
-           lng >= -180 && lng <= 180
-  }
-
-  const hasCoords = hasValidCoordinates()
-  const lat = hasCoords ? Number(miejsce!.latitude) : null
-  const lng = hasCoords ? Number(miejsce!.longitude) : null
-
   return (
-    <details className="group rounded-xl border border-slate-600/70 bg-slate-900/70 px-4 py-3 shadow-sm open:shadow-md transition-shadow">
-      <summary className="flex cursor-pointer list-none items-center justify-between gap-3">
-        <div className="min-w-0">
-          <div className="truncate text-base font-semibold text-sky-100">
+    <div className="rounded-lg border border-slate-600/50 bg-slate-800/50 p-4 hover:bg-slate-800/70 transition-colors">
+      <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
+        {/* Lewa strona - Informacje o turnieju */}
+        <div className="flex-1 min-w-0">
+          {/* Nazwa turnieju */}
+          <h3 className="text-lg font-semibold text-sky-100 mb-2">
             {r.nazwa}
-          </div>
-          <div className="mt-0.5 text-xs text-sky-200/80">
-            {start ? (
-              <>
-                {formatDatePL(start)} •{' '}
-                {formatTimeHHMM(r.godzina_turnieju)}
+          </h3>
+          
+          {/* Data i godzina */}
+          {start && (
+            <div className="flex items-center gap-2 text-sm text-sky-200/80 mb-1">
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+              </svg>
+              <span>
+                {formatDatePL(start)} • {formatTimeHHMM(r.godzina_turnieju)}
                 {end && ` - ${formatTimeHHMM(r.zakonczenie_turnieju)}`}
-                {miejsce && <> • {miejsce.nazwa}, {miejsce.miasto}</>}
-                {r.limit_graczy ? <> • limit: {r.limit_graczy}</> : null}
-              </>
-            ) : (
-              <>—</>
-            )}
-          </div>
-        </div>
-        {badge && (
-          <span
-            className={`shrink-0 rounded-full border px-3 py-1 text-xs font-medium ${badge.style}`}
-          >
-            {badge.text}
-          </span>
-        )}
-      </summary>
-
-      <div className="mt-4 grid gap-4 sm:grid-cols-2">
-        <div className="space-y-2">
-          <div className="text-sm font-medium text-sky-100">Szczegóły</div>
-          <ul className="text-sm text-sky-100/90 leading-relaxed">
-            <li>
-              <span className="opacity-70">Data:</span>{' '}
-              {start ? formatDatePL(start) : '—'}
-            </li>
-            <li>
-              <span className="opacity-70">Godzina rozpoczęcia:</span>{' '}
-              {formatTimeHHMM(r.godzina_turnieju)}
-            </li>
-            <li>
-              <span className="opacity-70">Godzina zakończenia:</span>{' '}
-              {r.zakonczenie_turnieju
-                ? formatTimeHHMM(r.zakonczenie_turnieju)
-                : 'nieustalona'}
-            </li>
-            {miejsce && (
-              <li>
-                <span className="opacity-70">Miejsce:</span>{' '}
-                {miejsce.nazwa}, {miejsce.miasto}
-                {miejsce.wojewodztwo && `, ${miejsce.wojewodztwo}`}
-                {miejsce.adres && ` (${miejsce.adres})`}
-                {hasCoords && (
-                  <span className="text-green-400 ml-2">
-                    ✓ Współrzędne dostępne
-                  </span>
-                )}
-              </li>
-            )}
-            {r.limit_graczy && (
-              <li>
-                <span className="opacity-70">Limit graczy:</span>{' '}
-                {r.limit_graczy}
-              </li>
-            )}
-          </ul>
-
-          <div className="flex flex-wrap gap-2 pt-2">
-            {r.gsheet_url && (
-              <a
-                href={r.gsheet_url}
-                target="_blank"
-                rel="noreferrer"
-                className="inline-flex items-center gap-2 rounded-full border border-sky-500/70 bg-slate-900/80 px-4 py-2 text-sm font-semibold text-sky-100 hover:bg-slate-800 hover:border-sky-300 transition"
-              >
-                Arkusz Google
-                <svg
-                  width="16"
-                  height="16"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  aria-hidden
-                >
-                  <path
-                    d="M14 3h7v7m0-7L10 14"
-                    stroke="currentColor"
-                    strokeWidth="2"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                  />
-                  <path
-                    d="M21 14v7H3V3h7"
-                    stroke="currentColor"
-                    strokeWidth="2"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                  />
-                </svg>
-              </a>
-            )}
-
-            {calendarUrl && (
-              <a
-                href={calendarUrl}
-                target="_blank"
-                rel="noreferrer"
-                className="inline-flex items-center gap-2 rounded-full border border-blue-500/70 bg-blue-600/20 px-4 py-2 text-sm font-semibold text-blue-100 hover:bg-blue-500/30 hover:border-blue-400 transition"
-              >
-                <svg
-                  width="16"
-                  height="16"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="2"
-                >
-                  <rect x="3" y="4" width="18" height="18" rx="2" ry="2" />
-                  <line x1="16" y1="2" x2="16" y2="6" />
-                  <line x1="8" y1="2" x2="8" y2="6" />
-                  <line x1="3" y1="10" x2="21" y2="10" />
-                </svg>
-                Dodaj do kalendarza
-              </a>
-            )}
-          </div>
-        </div>
-
-        {/* Sekcja z mapą */}
-        <div className="space-y-2">
-          <div className="text-sm font-medium text-sky-100">Lokalizacja</div>
-          {hasCoords && miejsce ? (
-            <div className="overflow-hidden rounded-lg border border-slate-600 bg-slate-900">
-              <div className="aspect-[16/9]">
-                <iframe
-                  title={`Mapa ${r.nazwa}`}
-                  src={`https://maps.google.com/maps?q=${lat},${lng}&z=15&output=embed`}
-                  className="h-full w-full border-0"
-                  loading="lazy"
-                  referrerPolicy="no-referrer-when-downgrade"
-                  allowFullScreen
-                />
-              </div>
-              <div className="border-t border-slate-700 bg-slate-900/90 p-2">
-                <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
-                  <a
-                    href={`https://www.google.com/maps/search/?api=1&query=${lat},${lng}`}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="text-xs font-medium text-sky-300 hover:text-sky-100 hover:underline"
-                  >
-                    Otwórz w Mapach Google
-                  </a>
-                  <div className="flex gap-2">
-                    <a
-                      href={`https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}`}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="inline-flex items-center gap-1 rounded-full bg-green-600 hover:bg-green-500 px-3 py-1 text-xs font-medium text-white transition"
-                    >
-                      <svg
-                        width="12"
-                        height="12"
-                        viewBox="0 0 24 24"
-                        fill="none"
-                        stroke="currentColor"
-                        strokeWidth="2"
-                      >
-                        <path d="M12 2L14.09 8.26L21 9.27L17 14.14L18.18 21.02L12 17.77L5.82 21.02L7 14.14L3 9.27L9.91 8.26L12 2Z" />
-                      </svg>
-                      Nawiguj
-                    </a>
-                  </div>
-                </div>
-              </div>
+              </span>
             </div>
-          ) : miejsce ? (
-            <div className="rounded-md border border-slate-600 bg-slate-900/80 px-3 py-2 text-sm text-sky-100/80">
-              Brak współrzędnych dla miejsca: {miejsce.nazwa}
-              {miejsce.adres && (
-                <div className="mt-1 text-xs opacity-70">
-                  Adres: {miejsce.adres}
-                </div>
-              )}
+          )}
+
+          {/* Miejsce i adres */}
+          {miejsce ? (
+            <div className="flex items-start gap-2 text-sm text-sky-200/80">
+              <svg className="w-4 h-4 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+              </svg>
+              <div>
+                <div className="font-medium">{miejsce.nazwa}, {miejsce.miasto}</div>
+                {miejsce.adres && (
+                  <div className="text-sky-200/60 text-xs mt-0.5">
+                    {miejsce.adres}
+                  </div>
+                )}
+                {miejsce.wojewodztwo && (
+                  <div className="text-sky-200/60 text-xs mt-0.5">
+                    Województwo: {miejsce.wojewodztwo}
+                  </div>
+                )}
+              </div>
             </div>
           ) : (
-            <div className="rounded-md border border-slate-600 bg-slate-900/80 px-3 py-2 text-sm text-sky-100/80">
-              Brak przypisanego miejsca.
+            <div className="flex items-start gap-2 text-sm text-red-400/80">
+              <svg className="w-4 h-4 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.35 16.5c-.77.833.192 2.5 1.732 2.5z" />
+              </svg>
+              <div>
+                <div>Brak danych miejsca</div>
+                <div className="text-xs text-red-300/60 mt-0.5">
+                  Miejsce ID w turnieju: {r.miejsce_id || 'NULL'}
+                </div>
+              </div>
             </div>
           )}
         </div>
+
+        {/* Prawa strona - Status */}
+        {badge && (
+          <div className="shrink-0">
+            <span
+              className={`inline-flex rounded-full border px-3 py-1 text-xs font-medium ${badge.style}`}
+            >
+              {badge.text}
+            </span>
+          </div>
+        )}
       </div>
-    </details>
+    </div>
   )
 }
 
 export default async function TurniejListPage() {
   const supabase = await createSupabaseServer()
   
-  // Pobieramy dane z obu tabel przez relację
   const { data: rows, error } = await supabase
     .from('turniej')
     .select(`
@@ -417,56 +230,60 @@ export default async function TurniejListPage() {
         longitude
       )
     `)
-    .order('data_turnieju', { ascending: true })
+    .order('data_turnieju', { ascending: false })
     .limit(200)
 
   if (error) {
     console.error('Błąd pobierania danych:', error)
     return (
-      <main className="flex min-h-[calc(100vh-4rem)] items-center justify-center px-4 py-8">
-        <div className="w-full max-w-5xl rounded-2xl bg-slate-800/95 border border-slate-700 p-6">
-          <div className="text-red-400 text-center">
-            Błąd podczas ładowania turniejów: {error.message}
+      <main className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 py-8 px-4">
+        <div className="max-w-4xl mx-auto">
+          <div className="rounded-2xl bg-slate-800/95 border border-slate-700 p-6">
+            <div className="text-red-400 text-center">
+              Błąd podczas ładowania turniejów: {error.message}
+            </div>
           </div>
         </div>
       </main>
     )
   }
 
-  // Diagnostyka - sprawdź czy dane są pobierane poprawnie
-  if (rows && process.env.NODE_ENV === 'development') {
-    console.log('Liczba turniejów:', rows.length)
-    rows.forEach((row, index) => {
-      const miejsce = row.miejsce_turnieju
-      console.log(`Turniej ${index + 1}:`, {
-        nazwa: row.nazwa,
-        data: row.data_turnieju,
-        miejsce_id: row.miejsce_id,
-        miejsce: miejsce ? {
-          nazwa: miejsce.nazwa,
-          latitude: miejsce.latitude,
-          longitude: miejsce.longitude
-        } : 'BRAK MIEJSCA'
-      })
-    })
-  }
+  // BEZPIECZNE PRZEKSZTAŁCENIE DANYCH - bez type assertion
+  const tournaments: TurniejRow[] = rows ? rows.map(row => {
+    // Używamy funkcji safeMiejsceTurnieju zamiast bezpośredniego rzutowania
+    const miejsce = safeMiejsceTurnieju(row.miejsce_turnieju)
+    
+    return {
+      id: String(row.id),
+      nazwa: String(row.nazwa || ''),
+      data_turnieju: row.data_turnieju ? String(row.data_turnieju) : null,
+      godzina_turnieju: row.godzina_turnieju ? String(row.godzina_turnieju) : null,
+      zakonczenie_turnieju: row.zakonczenie_turnieju ? String(row.zakonczenie_turnieju) : null,
+      gsheet_url: row.gsheet_url ? String(row.gsheet_url) : null,
+      limit_graczy: row.limit_graczy ? Number(row.limit_graczy) : null,
+      miejsce_id: row.miejsce_id ? String(row.miejsce_id) : null,
+      miejsce_turnieju: miejsce
+    }
+  }) : []
 
   return (
-    <main className="flex min-h-[calc(100vh-4rem)] items-center justify-center px-4 py-8">
-      <div className="w-full max-w-5xl rounded-2xl bg-slate-800/95 border border-slate-700 shadow-[0_14px_40px_rgba(0,0,0,0.8)] p-6 space-y-8">
-        <h1 className="text-2xl font-semibold text-sky-50 text-center">
-          Wszystkie turnieje
-        </h1>
+    <main className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 py-8 px-4">
+      <div className="max-w-4xl mx-auto">
+        <div className="text-center mb-8">
+          <h1 className="text-3xl font-bold text-sky-50 mb-2">
+            Lista Turniejów
+          </h1>
+        </div>
 
-        {rows && rows.length > 0 ? (
-          <div className="space-y-4">
-            {rows.map((r) => (
+        {tournaments.length > 0 ? (
+          <div className="space-y-3">
+            {tournaments.map((r) => (
               <TournamentCard key={r.id} r={r} />
             ))}
           </div>
         ) : (
-          <div className="rounded-md border border-slate-600 bg-slate-900/80 px-4 py-6 text-sm text-sky-100/80 text-center">
-            Brak turniejów.
+          <div className="rounded-2xl bg-slate-800/95 border border-slate-700 p-8 text-center">
+            <div className="text-sky-100/80 text-lg mb-2">Brak turniejów</div>
           </div>
         )}
       </div>
