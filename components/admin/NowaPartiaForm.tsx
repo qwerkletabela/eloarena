@@ -3,7 +3,7 @@
 import { useState, useMemo } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { ArrowLeft, Save, Users, X, Trophy, TrendingUp, TrendingDown } from 'lucide-react'
+import { ArrowLeft, Save, Users, X, Trophy, TrendingUp, TrendingDown, Plus, Minus } from 'lucide-react'
 
 interface Gracz {
   id: string
@@ -19,7 +19,7 @@ interface Turniej {
 
 interface NowaPartiaFormProps {
   turniej: Turniej
-  gracze: Gracz[]
+  gracze: Gracz[] | null
   kolejnyNumer: number
   turniejId: string
 }
@@ -35,18 +35,27 @@ interface ZmianaElo {
   duzy_punkt: boolean
 }
 
+interface PartiaData {
+  duzyPunkt: string
+  malePunkty: number[]
+}
+
 export default function NowaPartiaForm({ turniej, gracze, kolejnyNumer, turniejId }: NowaPartiaFormProps) {
   const router = useRouter()
   const [selectedGracze, setSelectedGracze] = useState<(string | null)[]>([null, null, null, null])
   const [searchValues, setSearchValues] = useState<string[]>(['', '', '', ''])
-  const [malePunkty, setMalePunkty] = useState<number[]>([0, 0, 0, 0])
-  const [duzyPunkt, setDuzyPunkt] = useState<string>('')
+  const [liczbaPartii, setLiczbaPartii] = useState(1)
+  const [partieDane, setPartieDane] = useState<PartiaData[]>([
+    { duzyPunkt: '', malePunkty: [0, 0, 0, 0] }
+  ])
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [showSummary, setShowSummary] = useState(false)
-  const [summaryData, setSummaryData] = useState<ZmianaElo[]>([])
+  const [summaryData, setSummaryData] = useState<ZmianaElo[][]>([])
 
-  // Przygotuj listę graczy do wyświetlenia w datalist
+  // Przygotuj listę graczy do wyświetlenia w datalist - z zabezpieczeniem przed undefined
   const graczeOptions = useMemo(() => {
+    if (!gracze) return []
+    
     return gracze.map(gracz => ({
       id: gracz.id,
       display: `${gracz.imie} ${gracz.nazwisko} (${Math.round(gracz.aktualny_elo || 1200)})`
@@ -78,11 +87,48 @@ export default function NowaPartiaForm({ turniej, gracze, kolejnyNumer, turniejI
     setSelectedGracze(newSelected)
   }
 
-  // Funkcja do obsługi zmian małych punktów
-  const handleMalePunktyChange = (index: number, value: string) => {
-    const newMalePunkty = [...malePunkty]
-    newMalePunkty[index] = parseFloat(value) || 0
-    setMalePunkty(newMalePunkty)
+  // Funkcja do zmiany liczby partii
+  const handleLiczbaPartiiChange = (newLiczba: number) => {
+    if (newLiczba < 1) return
+    
+    if (newLiczba > liczbaPartii) {
+      // Dodaj nowe partie
+      const newPartieDane = [...partieDane]
+      for (let i = liczbaPartii; i < newLiczba; i++) {
+        newPartieDane.push({
+          duzyPunkt: selectedGracze.find(g => g !== null) || '', // Domyślnie pierwszy wybrany gracz
+          malePunkty: selectedGracze.map(() => 0)
+        })
+      }
+      setPartieDane(newPartieDane)
+    } else {
+      // Usuń partie
+      setPartieDane(partieDane.slice(0, newLiczba))
+    }
+    
+    setLiczbaPartii(newLiczba)
+  }
+
+  // Funkcja do zmiany dużego punktu w partii
+  const handleDuzyPunktChange = (partiaIndex: number, graczId: string) => {
+    const newPartieDane = [...partieDane]
+    newPartieDane[partiaIndex] = {
+      ...newPartieDane[partiaIndex],
+      duzyPunkt: graczId
+    }
+    setPartieDane(newPartieDane)
+  }
+
+  // Funkcja do zmiany małych punktów w partii
+  const handleMalePunktyChange = (partiaIndex: number, graczIndex: number, value: number) => {
+    const newPartieDane = [...partieDane]
+    const newMalePunkty = [...newPartieDane[partiaIndex].malePunkty]
+    newMalePunkty[graczIndex] = value
+    newPartieDane[partiaIndex] = {
+      ...newPartieDane[partiaIndex],
+      malePunkty: newMalePunkty
+    }
+    setPartieDane(newPartieDane)
   }
 
   // Funkcja do czyszczenia pola
@@ -91,18 +137,17 @@ export default function NowaPartiaForm({ turniej, gracze, kolejnyNumer, turniejI
     newSearchValues[index] = ''
     setSearchValues(newSearchValues)
 
-    const newMalePunkty = [...malePunkty]
-    newMalePunkty[index] = 0
-    setMalePunkty(newMalePunkty)
-
     const newSelected = [...selectedGracze]
     newSelected[index] = null
     setSelectedGracze(newSelected)
 
-    // Jeśli usuwamy gracza z dużym punktem, wyczyść duży punkt
-    if (duzyPunkt === newSelected[index]) {
-      setDuzyPunkt('')
-    }
+    // Zaktualizuj partie dane - usuń duże punkty dla usuniętego gracza
+    const newPartieDane = partieDane.map(partia => ({
+      ...partia,
+      duzyPunkt: partia.duzyPunkt === newSelected[index] ? '' : partia.duzyPunkt,
+      malePunkty: partia.malePunkty.map((punkty, i) => i === index ? 0 : punkty)
+    }))
+    setPartieDane(newPartieDane)
   }
 
   // Funkcja do przesyłania formularza
@@ -110,12 +155,19 @@ export default function NowaPartiaForm({ turniej, gracze, kolejnyNumer, turniejI
     e.preventDefault()
     setIsSubmitting(true)
 
-    const formData = new FormData(e.target as HTMLFormElement)
-    
     try {
       const response = await fetch(`/admin/turniej/${turniejId}/partie/nowa/action`, {
         method: 'POST',
-        body: formData,
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          turniej_id: turniejId,
+          numer_partii_start: kolejnyNumer,
+          liczba_partii: liczbaPartii,
+          gracze: selectedGracze.filter(g => g !== null),
+          partie: partieDane
+        }),
       })
 
       if (response.ok) {
@@ -142,9 +194,44 @@ export default function NowaPartiaForm({ turniej, gracze, kolejnyNumer, turniejI
   }
 
   const liczbaWybranychGraczy = selectedGracze.filter(g => g !== null).length
+  const canSubmit = liczbaWybranychGraczy >= 2 && 
+                   partieDane.every(partia => partia.duzyPunkt) &&
+                   partieDane.every(partia => 
+                     partia.malePunkty.slice(0, liczbaWybranychGraczy).every(punkt => !isNaN(punkt))
+                   )
+
+  // Jeśli nie ma graczy, pokaż komunikat
+  if (!gracze || gracze.length === 0) {
+    return (
+      <div className="p-8 max-w-4xl mx-auto">
+        <Link
+          href={`/admin/turniej/${turniejId}/partie`}
+          className="inline-flex items-center text-sm text-slate-400 hover:text-white mb-6"
+        >
+          <ArrowLeft className="h-4 w-4 mr-2" />
+          Powrót do partii
+        </Link>
+
+        <div className="bg-slate-800/50 rounded-xl border border-slate-700 p-6 text-center">
+          <Users className="h-12 w-12 text-slate-400 mx-auto mb-4" />
+          <h2 className="text-xl font-bold text-white mb-2">Brak graczy</h2>
+          <p className="text-slate-400 mb-6">
+            Nie ma dostępnych graczy do wyboru. Dodaj graczy przed tworzeniem partii.
+          </p>
+          <Link
+            href="/admin/gracze"
+            className="bg-sky-500 hover:bg-sky-600 text-white px-4 py-2 rounded-lg inline-flex items-center"
+          >
+            <Plus className="h-4 w-4 mr-2" />
+            Zarządzaj graczami
+          </Link>
+        </div>
+      </div>
+    )
+  }
 
   return (
-    <div className="p-8 max-w-4xl mx-auto">
+    <div className="p-8 max-w-6xl mx-auto">
       <Link
         href={`/admin/turniej/${turniejId}/partie`}
         className="inline-flex items-center text-sm text-slate-400 hover:text-white mb-6"
@@ -154,34 +241,30 @@ export default function NowaPartiaForm({ turniej, gracze, kolejnyNumer, turniejI
       </Link>
 
       <div className="bg-slate-800/50 rounded-xl border border-slate-700 p-6">
-        <h1 className="text-2xl font-bold text-white mb-2">Nowa partia</h1>
+        <h1 className="text-2xl font-bold text-white mb-2">Nowe partie</h1>
         <p className="text-slate-400 mb-6">
-          Turniej: {turniej.nazwa} • Partia #{kolejnyNumer}
+          Turniej: {turniej.nazwa} • Partie #{kolejnyNumer}-{kolejnyNumer + liczbaPartii - 1}
         </p>
 
         <form onSubmit={handleSubmit}>
-          <input type="hidden" name="turniej_id" value={turniejId} />
-          <input type="hidden" name="numer_partii" value={kolejnyNumer} />
-          
-          <div className="mb-6">
+          {/* Wybór graczy */}
+          <div className="mb-8">
             <h3 className="text-lg font-semibold text-white mb-4 flex items-center">
               <Users className="h-5 w-5 mr-2" />
-              Wybierz graczy (2-4) i wprowadź wyniki
+              Wybierz graczy (2-4)
             </h3>
             
             <div className="space-y-4">
               {[0, 1, 2, 3].map((index) => (
                 <div key={index} className="bg-slate-700/30 rounded-lg p-4">
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-center">
-                    {/* Wybór gracza z autouzupełnianiem */}
-                    <div className="relative">
+                  <div className="flex items-center space-x-4">
+                    <div className="flex-1">
                       <label className="block text-sm text-slate-400 mb-1">
                         Gracz {index + 1}
                       </label>
                       <div className="relative">
                         <input
                           type="text"
-                          name={`gracz${index + 1}_search`}
                           value={searchValues[index]}
                           onChange={(e) => handleInputChange(index, e.target.value)}
                           list={`gracze-list-${index}`}
@@ -201,96 +284,134 @@ export default function NowaPartiaForm({ turniej, gracze, kolejnyNumer, turniejI
                         )}
                       </div>
                       
-                      {/* Datalist z dostępnymi graczami */}
                       <datalist id={`gracze-list-${index}`}>
                         {getAvailableGracze(index).map((gracz) => (
-                          <option key={gracz.id} value={gracz.display} data-id={gracz.id} />
+                          <option key={gracz.id} value={gracz.display} />
                         ))}
                       </datalist>
-                      
-                      {/* Ukryte pole z ID gracza */}
-                      <input 
-                        type="hidden" 
-                        name={`gracz${index + 1}`} 
-                        value={selectedGracze[index] || ''} 
-                      />
                     </div>
 
-                    {/* Małe punkty */}
-                    <div>
-                      <label className="block text-sm text-slate-400 mb-1">
-                        Małe punkty
-                      </label>
-                      <input
-                        type="number"
-                        name={`male_punkty${index + 1}`}
-                        value={malePunkty[index]}
-                        onChange={(e) => handleMalePunktyChange(index, e.target.value)}
-                        min="0"
-                        step="0.1"
-                        className="w-full bg-slate-600 border border-slate-500 rounded px-3 py-2 text-white text-sm"
-                        disabled={!selectedGracze[index]}
-                      />
-                    </div>
-
-                    {/* Duży punkt */}
-                    <div className="flex items-center">
-                      <input
-                        type="radio"
-                        name="duzy_punkt"
-                        value={selectedGracze[index] || ''}
-                        checked={duzyPunkt === selectedGracze[index]}
-                        onChange={(e) => setDuzyPunkt(e.target.value)}
-                        id={`duzy_punkt${index + 1}`}
-                        className="h-4 w-4 text-yellow-500 bg-slate-600 border-slate-500"
-                        disabled={!selectedGracze[index]}
-                      />
-                      <label 
-                        htmlFor={`duzy_punkt${index + 1}`}
-                        className="ml-2 text-sm text-slate-400"
-                      >
-                        Zwycięzca (duży punkt)
-                      </label>
-                    </div>
+                    {selectedGracze[index] && (
+                      <div className="text-xs text-green-400 mt-6">
+                        ✓ Wybrano
+                      </div>
+                    )}
                   </div>
-                  
-                  {/* Wyświetl informację o wybranym graczu */}
-                  {selectedGracze[index] && (
-                    <div className="mt-2 text-xs text-green-400">
-                      ✓ Wybrano: {searchValues[index]}
-                    </div>
-                  )}
                 </div>
               ))}
             </div>
           </div>
 
+          {/* Wybór liczby partii */}
+          <div className="mb-8">
+            <h3 className="text-lg font-semibold text-white mb-4">Liczba partii do dodania</h3>
+            <div className="flex items-center space-x-4 mb-4">
+              <button
+                type="button"
+                onClick={() => handleLiczbaPartiiChange(liczbaPartii - 1)}
+                disabled={liczbaPartii <= 1}
+                className="p-2 rounded-lg bg-slate-700 hover:bg-slate-600 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                <Minus className="h-4 w-4" />
+              </button>
+              
+              <span className="text-white font-semibold text-lg min-w-8 text-center">
+                {liczbaPartii}
+              </span>
+              
+              <button
+                type="button"
+                onClick={() => handleLiczbaPartiiChange(liczbaPartii + 1)}
+                disabled={liczbaPartii >= 10}
+                className="p-2 rounded-lg bg-slate-700 hover:bg-slate-600 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                <Plus className="h-4 w-4" />
+              </button>
+              
+              <span className="text-slate-400 text-sm">
+                Partie #{kolejnyNumer}-{kolejnyNumer + liczbaPartii - 1}
+              </span>
+            </div>
+            <p className="text-slate-400 text-sm">
+              Możesz dodać maksymalnie 10 partii na raz
+            </p>
+          </div>
+
+          {/* Partie */}
+          <div className="space-y-6 mb-8">
+            {partieDane.map((partia, partiaIndex) => (
+              <div key={partiaIndex} className="bg-slate-700/30 rounded-xl border border-slate-600 p-6">
+                <h3 className="text-lg font-semibold text-white mb-4">
+                  Partia #{kolejnyNumer + partiaIndex}
+                </h3>
+                
+                <div className="space-y-3">
+                  {selectedGracze.map((graczId, graczIndex) => 
+                    graczId && (
+                      <div key={graczIndex} className="flex items-center justify-between p-3 bg-slate-600/30 rounded-lg">
+                        <div className="flex items-center space-x-3 flex-1">
+                          <input
+                            type="radio"
+                            name={`duzyPunkt-${partiaIndex}`}
+                            checked={partia.duzyPunkt === graczId}
+                            onChange={() => handleDuzyPunktChange(partiaIndex, graczId)}
+                            className="h-4 w-4 text-yellow-500 bg-slate-600 border-slate-500 focus:ring-yellow-500 focus:ring-2"
+                          />
+                          <span className="text-white font-medium">
+                            {graczeOptions.find(g => g.id === graczId)?.display}
+                          </span>
+                          {partia.duzyPunkt === graczId && (
+                            <span className="text-yellow-400 text-sm flex items-center">
+                              <Trophy className="h-3 w-3 mr-1" />
+                              Zwycięzca
+                            </span>
+                          )}
+                        </div>
+                        
+                        <div className="flex items-center space-x-2">
+                          <label className="text-slate-400 text-sm whitespace-nowrap">Małe punkty:</label>
+                          <input
+                            type="number"
+                            value={partia.malePunkty[graczIndex]}
+                            onChange={(e) => handleMalePunktyChange(partiaIndex, graczIndex, parseFloat(e.target.value) || 0)}
+                            min="0"
+                            step="0.1"
+                            className="w-20 bg-slate-600 border border-slate-500 rounded px-2 py-1 text-white text-sm focus:border-sky-500 focus:ring-1 focus:ring-sky-500"
+                          />
+                        </div>
+                      </div>
+                    )
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+
           <div className="bg-blue-500/10 border border-blue-500/30 rounded-lg p-4 mb-6">
-            <h4 className="text-sm font-semibold text-blue-300 mb-2">Nowy system rozgrywek:</h4>
+            <h4 className="text-sm font-semibold text-blue-300 mb-2">Jak to działa?</h4>
             <ul className="text-sm text-blue-200/80 space-y-1">
-              <li>• <strong>Tylko jeden zwycięzca</strong> - gracz z dużym punktem</li>
-              <li>• <strong>Zwycięzca zyskuje punkty Elo</strong> - obliczane na podstawie rankingów przegranych</li>
-              <li>• <strong>Przegrani tracą punkty Elo</strong> - obliczane na podstawie rankingu zwycięzcy</li>
-              <li>• <strong>Małe punkty</strong> - służą tylko do statystyk, nie wpływają na Elo</li>
-              <li>• Wybierz od 2 do 4 różnych graczy</li>
-              <li>• Zaznacz tylko <strong>jednego gracza</strong> jako zwycięzcę</li>
+              <li>• <strong>Wybierz skład graczy</strong> (2-4 osoby) - ten sam dla wszystkich partii</li>
+              <li>• <strong>Określ liczbę partii</strong> - ile partii chcesz dodać z tym składem</li>
+              <li>• <strong>Dla każdej partii</strong> zaznacz zwycięzcę i wprowadź małe punkty</li>
+              <li>• <strong>System automatycznie</strong> obliczy zmiany ELO dla każdej partii</li>
+              <li>• Partie zostaną zapisane z kolejnymi numerami</li>
             </ul>
           </div>
 
           <div className="flex justify-end space-x-3">
             <Link
               href={`/admin/turniej/${turniejId}/partie`}
-              className="px-4 py-2 text-slate-400 hover:text-white border border-slate-600 rounded-lg"
+              className="px-4 py-2 text-slate-400 hover:text-white border border-slate-600 rounded-lg transition-colors"
             >
               Anuluj
             </Link>
             <button
               type="submit"
-              disabled={isSubmitting || liczbaWybranychGraczy < 2 || !duzyPunkt}
-              className="bg-sky-500 hover:bg-sky-600 disabled:bg-slate-700 disabled:text-slate-400 text-white px-6 py-2 rounded-lg flex items-center"
+              disabled={isSubmitting || !canSubmit}
+              className="bg-sky-500 hover:bg-sky-600 disabled:bg-slate-700 disabled:text-slate-400 text-white px-6 py-2 rounded-lg flex items-center transition-colors"
             >
               <Save className="h-4 w-4 mr-2" />
-              {isSubmitting ? 'Zapisywanie...' : 'Zapisz partię'}
+              {isSubmitting ? 'Zapisywanie...' : `Zapisz ${liczbaPartii} partii`}
             </button>
           </div>
         </form>
@@ -299,7 +420,7 @@ export default function NowaPartiaForm({ turniej, gracze, kolejnyNumer, turniejI
       {/* Modal z podsumowaniem zmian */}
       {showSummary && (
         <div className="fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center z-50 p-4">
-          <div className="bg-slate-800 rounded-2xl border border-slate-600 max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+          <div className="bg-slate-800 rounded-2xl border border-slate-600 max-w-4xl w-full max-h-[90vh] overflow-y-auto">
             <div className="p-6 border-b border-slate-700">
               <div className="flex items-center justify-between">
                 <div className="flex items-center space-x-3">
@@ -307,13 +428,13 @@ export default function NowaPartiaForm({ turniej, gracze, kolejnyNumer, turniejI
                     <Trophy className="h-6 w-6 text-white" />
                   </div>
                   <div>
-                    <h2 className="text-xl font-bold text-white">Partia zapisana pomyślnie!</h2>
+                    <h2 className="text-xl font-bold text-white">Partie zapisane pomyślnie!</h2>
                     <p className="text-slate-400 text-sm">Podsumowanie zmian rankingu Elo</p>
                   </div>
                 </div>
                 <button
                   onClick={handleCloseSummary}
-                  className="text-slate-400 hover:text-white p-1 rounded-lg hover:bg-slate-700"
+                  className="text-slate-400 hover:text-white p-1 rounded-lg hover:bg-slate-700 transition-colors"
                 >
                   <X className="h-5 w-5" />
                 </button>
@@ -321,77 +442,74 @@ export default function NowaPartiaForm({ turniej, gracze, kolejnyNumer, turniejI
             </div>
 
             <div className="p-6">
-              <div className="space-y-4">
-                {summaryData
-                  .sort((a, b) => (b.duzy_punkt ? 1 : 0) - (a.duzy_punkt ? 1 : 0) || b.zmiana_elo - a.zmiana_elo)
-                  .map((zmiana) => (
-                    <div 
-                      key={zmiana.gracz_id} 
-                      className={`p-4 rounded-xl border ${
-                        zmiana.duzy_punkt 
-                          ? 'bg-green-500/10 border-green-500/30' 
-                          : 'bg-slate-700/30 border-slate-600'
-                      }`}
-                    >
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center space-x-4">
-                          {zmiana.duzy_punkt && (
-                            <div className="bg-yellow-500 rounded-full p-2">
-                              <Trophy className="h-5 w-5 text-yellow-900" />
-                            </div>
-                          )}
-                          <div>
-                            <h3 className="text-white font-semibold">
-                              {zmiana.imie} {zmiana.nazwisko}
+              {summaryData.map((partiaZmiany, partiaIndex) => (
+                <div key={partiaIndex} className="mb-8 last:mb-0">
+                  <h3 className="text-lg font-semibold text-white mb-4">
+                    Partia #{kolejnyNumer + partiaIndex} - Podsumowanie
+                  </h3>
+                  <div className="space-y-3">
+                    {partiaZmiany
+                      .sort((a, b) => (b.duzy_punkt ? 1 : 0) - (a.duzy_punkt ? 1 : 0) || b.zmiana_elo - a.zmiana_elo)
+                      .map((zmiana) => (
+                        <div 
+                          key={zmiana.gracz_id} 
+                          className={`p-4 rounded-xl border ${
+                            zmiana.duzy_punkt 
+                              ? 'bg-green-500/10 border-green-500/30' 
+                              : 'bg-slate-700/30 border-slate-600'
+                          }`}
+                        >
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center space-x-4">
                               {zmiana.duzy_punkt && (
-                                <span className="ml-2 text-yellow-400 text-sm">🎯 ZWYCIĘZCA</span>
+                                <div className="bg-yellow-500 rounded-full p-2">
+                                  <Trophy className="h-5 w-5 text-yellow-900" />
+                                </div>
                               )}
-                            </h3>
-                            <div className="text-sm text-slate-400">
-                              Małe punkty: {zmiana.male_punkty}
+                              <div>
+                                <h4 className="text-white font-semibold">
+                                  {zmiana.imie} {zmiana.nazwisko}
+                                  {zmiana.duzy_punkt && (
+                                    <span className="ml-2 text-yellow-400 text-sm">🎯 ZWYCIĘZCA</span>
+                                  )}
+                                </h4>
+                                <div className="text-sm text-slate-400">
+                                  Małe punkty: {zmiana.male_punkty}
+                                </div>
+                              </div>
+                            </div>
+
+                            <div className="text-right">
+                              <div className="flex items-center justify-end space-x-2 mb-1">
+                                <span className="text-slate-400 text-sm">Ranking Elo:</span>
+                                <span className="text-white font-bold">
+                                  {Math.round(zmiana.elo_przed)} → {Math.round(zmiana.elo_po)}
+                                </span>
+                              </div>
+                              <div className={`flex items-center justify-end space-x-1 text-sm font-medium ${
+                                zmiana.zmiana_elo > 0 ? 'text-green-400' : 'text-red-400'
+                              }`}>
+                                {zmiana.zmiana_elo > 0 ? (
+                                  <TrendingUp className="h-4 w-4" />
+                                ) : (
+                                  <TrendingDown className="h-4 w-4" />
+                                )}
+                                <span>
+                                  {zmiana.zmiana_elo > 0 ? '+' : ''}{Math.round(zmiana.zmiana_elo)} punktów
+                                </span>
+                              </div>
                             </div>
                           </div>
                         </div>
-
-                        <div className="text-right">
-                          <div className="flex items-center justify-end space-x-2 mb-1">
-                            <span className="text-slate-400 text-sm">Ranking Elo:</span>
-                            <span className="text-white font-bold">
-                              {Math.round(zmiana.elo_przed)} → {Math.round(zmiana.elo_po)}
-                            </span>
-                          </div>
-                          <div className={`flex items-center justify-end space-x-1 text-sm font-medium ${
-                            zmiana.zmiana_elo > 0 ? 'text-green-400' : 'text-red-400'
-                          }`}>
-                            {zmiana.zmiana_elo > 0 ? (
-                              <TrendingUp className="h-4 w-4" />
-                            ) : (
-                              <TrendingDown className="h-4 w-4" />
-                            )}
-                            <span>
-                              {zmiana.zmiana_elo > 0 ? '+' : ''}{Math.round(zmiana.zmiana_elo)} punktów
-                            </span>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-              </div>
-
-              <div className="mt-6 p-4 bg-slate-700/30 rounded-lg border border-slate-600">
-                <h4 className="text-sm font-semibold text-slate-300 mb-2">Nowy system Elo:</h4>
-                <ul className="text-sm text-slate-400 space-y-1">
-                  <li>• <strong>Zwycięzca zyskuje punkty Elo</strong> - obliczane na podstawie rankingu przegranych</li>
-                  <li>• <strong>Przegrani tracą punkty Elo</strong> - obliczane na podstawie rankingu zwycięzcy</li>
-                  <li>• <strong>Im wyższy ranking przeciwnika</strong>, tym więcej punktów można zyskać/stracić</li>
-                  <li>• <strong>Małe punkty</strong> nie wpływają na Elo - służą tylko do statystyk</li>
-                </ul>
-              </div>
+                      ))}
+                  </div>
+                </div>
+              ))}
 
               <div className="flex justify-end mt-6">
                 <button
                   onClick={handleCloseSummary}
-                  className="bg-sky-500 hover:bg-sky-600 text-white px-6 py-2 rounded-lg flex items-center"
+                  className="bg-sky-500 hover:bg-sky-600 text-white px-6 py-2 rounded-lg transition-colors"
                 >
                   OK, rozumiem
                 </button>
