@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
 import TournamentModal from './TournamentModal'
 import { formatDatePL, formatTimeHHMM, joinDateTime, statusBadge } from '@/lib/utils'
 
@@ -26,6 +26,24 @@ type TurniejRow = {
   miejsce_turnieju: MiejsceTurnieju | null
 }
 
+// Klasy stylów z profilu
+const inputClass =
+  'w-full rounded-lg border border-slate-600 bg-slate-900/70 px-3 py-2 ' +
+  'text-sm text-sky-50 placeholder:text-slate-400 ' +
+  'focus:border-sky-400 focus:outline-none focus:ring-1 focus:ring-sky-400'
+
+const primaryBtn =
+  'inline-flex items-center justify-center rounded-full bg-gradient-to-r ' +
+  'from-sky-500 to-sky-600 px-4 py-2 text-sm font-semibold text-white ' +
+  'shadow-[0_10px_25px_rgba(15,23,42,0.9)] transition ' +
+  'hover:from-sky-400 hover:to-sky-500 hover:shadow-[0_14px_35px_rgba(15,23,42,1)] ' +
+  'disabled:opacity-50 disabled:hover:shadow-none'
+
+const secondaryBtn =
+  'inline-flex items-center justify-center rounded-full border border-slate-500 ' +
+  'bg-slate-800/80 px-4 py-2 text-sm font-semibold text-sky-100 shadow-sm ' +
+  'hover:bg-slate-700 hover:border-sky-400 transition'
+
 function TournamentCard({ r, onCardClick }: { r: TurniejRow, onCardClick: (tournament: TurniejRow) => void }) {
   const start = joinDateTime(r.data_turnieju, r.godzina_turnieju)
   const end = r.zakonczenie_turnieju
@@ -37,20 +55,20 @@ function TournamentCard({ r, onCardClick }: { r: TurniejRow, onCardClick: (tourn
 
   return (
     <div 
-      className="rounded-lg border border-slate-600/50 bg-slate-800/50 p-4 hover:bg-slate-800/70 transition-colors cursor-pointer"
+      className="rounded-2xl border border-slate-700 bg-slate-800/95 p-6 shadow-[0_14px_40px_rgba(0,0,0,0.8)] hover:shadow-[0_18px_50px_rgba(0,0,0,0.9)] transition-all cursor-pointer"
       onClick={() => onCardClick(r)}
     >
       <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
         {/* Lewa strona - Informacje o turnieju */}
         <div className="flex-1 min-w-0">
           {/* Nazwa turnieju */}
-          <h3 className="text-lg font-semibold text-sky-100 mb-2">
+          <h3 className="text-xl font-semibold text-sky-50 mb-3">
             {r.nazwa}
           </h3>
           
           {/* Data i godzina */}
           {start && (
-            <div className="flex items-center gap-2 text-sm text-sky-200/80 mb-1">
+            <div className="flex items-center gap-2 text-sm text-sky-200/80 mb-2">
               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
               </svg>
@@ -69,7 +87,7 @@ function TournamentCard({ r, onCardClick }: { r: TurniejRow, onCardClick: (tourn
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
               </svg>
               <div>
-                <div className="font-medium">{miejsce.nazwa}, {miejsce.miasto}</div>
+                <div className="font-medium text-sky-100">{miejsce.nazwa}, {miejsce.miasto}</div>
                 {miejsce.adres && (
                   <div className="text-sky-200/60 text-xs mt-0.5">
                     {miejsce.adres}
@@ -107,6 +125,7 @@ function TournamentCard({ r, onCardClick }: { r: TurniejRow, onCardClick: (tourn
 export default function TournamentList({ tournaments }: { tournaments: TurniejRow[] }) {
   const [selectedTournament, setSelectedTournament] = useState<TurniejRow | null>(null)
   const [isModalOpen, setIsModalOpen] = useState(false)
+  const [searchTerm, setSearchTerm] = useState('')
 
   const handleCardClick = (tournament: TurniejRow) => {
     setSelectedTournament(tournament)
@@ -118,29 +137,97 @@ export default function TournamentList({ tournaments }: { tournaments: TurniejRo
     setSelectedTournament(null)
   }
 
+  // Filtrowanie turniejów na podstawie wyszukiwania
+  const filteredTournaments = useMemo(() => {
+    if (!searchTerm.trim()) return tournaments
+
+    const lowercasedSearch = searchTerm.toLowerCase().trim()
+    return tournaments.filter(tournament =>
+      tournament.nazwa.toLowerCase().includes(lowercasedSearch) ||
+      (tournament.miejsce_turnieju?.nazwa.toLowerCase().includes(lowercasedSearch)) ||
+      (tournament.miejsce_turnieju?.miasto.toLowerCase().includes(lowercasedSearch))
+    )
+  }, [tournaments, searchTerm])
+
   return (
     <>
-      <main className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 py-8 px-4">
-        <div className="max-w-4xl mx-auto">
-          <div className="text-center mb-8">
-            <h1 className="text-3xl font-bold text-sky-50 mb-2">
+      <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900">
+        <main className="flex min-h-[calc(100vh-4rem)] items-center justify-center px-4 py-8">
+          <div className="w-full max-w-4xl rounded-2xl bg-slate-800/95 border border-slate-700 shadow-[0_14px_40px_rgba(0,0,0,0.8)] p-6 space-y-6">
+            <h1 className="text-2xl font-semibold text-sky-50 text-center">
               Lista Turniejów
             </h1>
-          </div>
+            
+            {/* Pole wyszukiwania */}
+            <div className="space-y-2">
+              <div className="relative">
+                <input
+                  type="text"
+                  placeholder="Szukaj turnieju, miejsca lub miasta..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className={inputClass + " pl-10"}
+                />
+                <svg
+                  className="absolute left-3 top-2.5 w-4 h-4 text-slate-400"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
+                  />
+                </svg>
+                
+                {/* Przycisk wyczyść */}
+                {searchTerm && (
+                  <button
+                    onClick={() => setSearchTerm('')}
+                    className="absolute right-3 top-2.5 text-slate-400 hover:text-sky-100 transition"
+                  >
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                  </button>
+                )}
+              </div>
+              
+              {/* Liczba wyników */}
+              {searchTerm && (
+                <div className="text-sm text-sky-200/60">
+                  Znaleziono {filteredTournaments.length} turniej{filteredTournaments.length === 1 ? '' : filteredTournaments.length >= 2 && filteredTournaments.length <= 4 ? 'e' : 'y'}
+                </div>
+              )}
+            </div>
 
-          {tournaments.length > 0 ? (
-            <div className="space-y-3">
-              {tournaments.map((r) => (
-                <TournamentCard key={r.id} r={r} onCardClick={handleCardClick} />
-              ))}
-            </div>
-          ) : (
-            <div className="rounded-2xl bg-slate-800/95 border border-slate-700 p-8 text-center">
-              <div className="text-sky-100/80 text-lg mb-2">Brak turniejów</div>
-            </div>
-          )}
-        </div>
-      </main>
+            {filteredTournaments.length > 0 ? (
+              <div className="space-y-4">
+                {filteredTournaments.map((r) => (
+                  <TournamentCard key={r.id} r={r} onCardClick={handleCardClick} />
+                ))}
+              </div>
+            ) : (
+              <div className="rounded-2xl border border-slate-700 bg-slate-800/95 p-8 text-center">
+                {searchTerm ? (
+                  <>
+                    <div className="text-sky-100/80 text-lg mb-2">
+                      Nie znaleziono turniejów dla "{searchTerm}"
+                    </div>
+                    <div className="text-sky-200/60 text-sm">
+                      Spróbuj zmienić kryteria wyszukiwania
+                    </div>
+                  </>
+                ) : (
+                  <div className="text-sky-100/80 text-lg mb-2">Brak turniejów</div>
+                )}
+              </div>
+            )}
+          </div>
+        </main>
+      </div>
 
       <TournamentModal 
         isOpen={isModalOpen} 
