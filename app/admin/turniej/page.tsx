@@ -3,6 +3,7 @@ import { redirect } from 'next/navigation'
 import Link from 'next/link'
 import { createSupabaseServer } from '@/lib/supabase/server'
 import DeleteTurniej from '@/components/DeleteTurniej'
+import { Users, BarChart3, Plus } from 'lucide-react'
 
 export const dynamic = 'force-dynamic'
 export const revalidate = 0
@@ -67,6 +68,21 @@ export default async function AdminTurniejList() {
     .order('created_at', { ascending: false })
     .limit(200)
 
+  // Pobierz liczbę partii dla każdego turnieju
+  const turniejeZPartiami = await Promise.all(
+    rows?.map(async (turniej) => {
+      const { count } = await supabase
+        .from('wyniki_partii')
+        .select('*', { count: 'exact', head: true })
+        .eq('turniej_id', turniej.id)
+
+      return {
+        ...turniej,
+        liczba_partii: count || 0
+      }
+    }) || []
+  )
+
   if (error) {
     return (
       <main className="flex min-h-[calc(100vh-4rem)] items-center justify-center px-4 py-8">
@@ -92,9 +108,7 @@ export default async function AdminTurniejList() {
             href="/turniej/new"
             className="rounded-full bg-sky-600 hover:bg-sky-500 px-6 py-2 text-sm font-semibold text-white transition flex items-center gap-2"
           >
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <path d="M12 5v14M5 12h14" />
-            </svg>
+            <Plus className="h-4 w-4" />
             Dodaj turniej
           </Link>
         </div>
@@ -113,6 +127,9 @@ export default async function AdminTurniejList() {
                   Zakończenie
                 </th>
                 <th className="px-4 py-3 text-left text-sky-100 font-medium text-xs uppercase tracking-wider">
+                  Partie
+                </th>
+                <th className="px-4 py-3 text-left text-sky-100 font-medium text-xs uppercase tracking-wider">
                   Limit graczy
                 </th>
                 <th className="px-4 py-3 text-left text-sky-100 font-medium text-xs uppercase tracking-wider">
@@ -124,8 +141,8 @@ export default async function AdminTurniejList() {
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-600">
-              {rows?.map((raw) => {
-                const r = raw as Row
+              {turniejeZPartiami?.map((raw) => {
+                const r = raw as Row & { liczba_partii: number }
                 const start = joinDateTime(r.data_turnieju, r.godzina_turnieju)
 
                 return (
@@ -164,6 +181,39 @@ export default async function AdminTurniejList() {
                       ) : (
                         <span className="text-xs text-slate-500">nieustalone</span>
                       )}
+                    </td>
+
+                    <td className="px-4 py-3">
+                      <div className="flex flex-col gap-2">
+                        <div className="flex items-center gap-2">
+                          <span className="text-sky-100 text-sm">
+                            {r.liczba_partii} partii
+                          </span>
+                        </div>
+                        <div className="flex gap-1">
+                          <Link
+                            href={`/admin/turniej/${r.id}/partie`}
+                            className="inline-flex items-center gap-1 rounded bg-green-600 hover:bg-green-500 px-2 py-1 text-xs font-medium text-white transition"
+                          >
+                            <Users className="h-3 w-3" />
+                            Partie
+                          </Link>
+                          <Link
+                            href={`/admin/turniej/${r.id}/partie/nowa`}
+                            className="inline-flex items-center gap-1 rounded bg-sky-600 hover:bg-sky-500 px-2 py-1 text-xs font-medium text-white transition"
+                          >
+                            <Plus className="h-3 w-3" />
+                            Nowa
+                          </Link>
+                          <Link
+                            href={`/admin/turniej/${r.id}/ranking`}
+                            className="inline-flex items-center gap-1 rounded bg-purple-600 hover:bg-purple-500 px-2 py-1 text-xs font-medium text-white transition"
+                          >
+                            <BarChart3 className="h-3 w-3" />
+                            Ranking
+                          </Link>
+                        </div>
+                      </div>
                     </td>
 
                     <td className="px-4 py-3 text-sky-100">
@@ -206,11 +256,11 @@ export default async function AdminTurniejList() {
                 )
               })}
 
-              {!rows?.length && (
+              {!turniejeZPartiami?.length && (
                 <tr>
                   <td
                     className="px-4 py-8 text-center text-slate-400 text-sm"
-                    colSpan={6}
+                    colSpan={7}
                   >
                     <div className="flex flex-col items-center gap-2">
                       <svg
@@ -243,12 +293,12 @@ export default async function AdminTurniejList() {
           </table>
         </div>
 
-        {rows && rows.length > 0 && (
+        {turniejeZPartiami && turniejeZPartiami.length > 0 && (
           <div className="text-sm text-slate-400 text-center">
-            Znaleziono {rows.length} turniej
-            {rows.length === 1
+            Znaleziono {turniejeZPartiami.length} turniej
+            {turniejeZPartiami.length === 1
               ? ''
-              : rows.length > 1 && rows.length < 5
+              : turniejeZPartiami.length > 1 && turniejeZPartiami.length < 5
               ? 'e'
               : 'y'}
           </div>
