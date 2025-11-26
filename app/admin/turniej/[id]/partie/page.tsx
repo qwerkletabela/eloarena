@@ -1,295 +1,366 @@
-import { createSupabaseServer } from '@/lib/supabase/server'
-import { redirect } from 'next/navigation'
 import Link from 'next/link'
+import { createSupabaseServer } from '@/lib/supabase/server'
 import { 
-  ArrowLeft, 
-  Plus,
-  Edit3,
-  Trash2,
-  Users,
-  Trophy,
+  Plus, 
+  Users, 
+  Trophy, 
   Calendar,
-  BarChart3,
-  RefreshCw
+  ArrowLeft,
+  Eye,
+  TrendingUp,
+  TrendingDown
 } from 'lucide-react'
-import { recalculateAllElo } from '@/lib/eloCalculator'
+
+interface GraczWPartii {
+  id: string
+  imie: string
+  nazwisko: string
+  elo_przed: number
+  elo_po: number
+  zmiana_elo: number
+  male_punkty: number
+}
+
+interface Partia {
+  id: string
+  numer_partii: number
+  data_rozgrywki: string
+  liczba_graczy: number
+  duzy_punkt_gracz_id: string
+  gracze: GraczWPartii[]
+}
+
+interface Turniej {
+  id: string
+  nazwa: string
+}
 
 export default async function PartieTurniejuPage({
   params
 }: {
-  params: { id: string }
+  params: Promise<{ id: string }>
 }) {
+  // Oczekujemy na params
+  const { id: turniejId } = await params;
   const supabase = await createSupabaseServer()
 
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) redirect('/auth/signin')
-  const { data: isAdmin } = await supabase.rpc('is_admin')
-  if (!isAdmin) redirect('/')
-
-  const { data: turniej } = await supabase
+  // Pobierz dane turnieju
+  const { data: turniej, error: turniejError } = await supabase
     .from('turniej')
-    .select('*')
-    .eq('id', params.id)
+    .select('id, nazwa')
+    .eq('id', turniejId)
     .single()
 
-  if (!turniej) {
-    redirect('/admin/turniej')
+  if (turniejError) {
+    console.error('Błąd pobierania turnieju:', turniejError)
+    return (
+      <div className="p-8 max-w-4xl mx-auto">
+        <div className="text-center">
+          <h1 className="text-2xl font-bold text-white mb-4">Błąd</h1>
+          <p className="text-slate-400 mb-6">Nie udało się załadować turnieju</p>
+          <Link
+            href="/admin/turniej"
+            className="text-sky-500 hover:text-sky-400"
+          >
+            Powrót do listy turniejów
+          </Link>
+        </div>
+      </div>
+    )
   }
 
-  const { data: partie } = await supabase
+  // Pobierz partie TYLKO z tego turnieju
+  const { data: partie, error: partieError } = await supabase
     .from('wyniki_partii')
     .select(`
-      *,
-      gracz1:gracz1_id(*),
-      gracz2:gracz2_id(*),
-      gracz3:gracz3_id(*),
-      gracz4:gracz4_id(*),
-      zwyciezca:duzy_punkt_gracz_id(*)
+      id,
+      numer_partii,
+      data_rozgrywki,
+      liczba_graczy,
+      duzy_punkt_gracz_id,
+      gracz1_id,
+      gracz2_id,
+      gracz3_id,
+      gracz4_id,
+      male_punkty1,
+      male_punkty2,
+      male_punkty3,
+      male_punkty4,
+      elo_przed1,
+      elo_przed2,
+      elo_przed3,
+      elo_przed4,
+      elo_po1,
+      elo_po2,
+      elo_po3,
+      elo_po4,
+      zmiana_elo1,
+      zmiana_elo2,
+      zmiana_elo3,
+      zmiana_elo4
     `)
-    .eq('turniej_id', params.id)
+    .eq('turniej_id', turniejId)
     .order('numer_partii', { ascending: true })
 
-  const { data: gracze } = await supabase
+  if (partieError) {
+    console.error('Błąd pobierania partii:', partieError)
+  }
+
+  console.log(`Pobrano ${partie?.length || 0} partii dla turnieju ${turniejId}`)
+
+  // Zbierz wszystkie ID graczy występujących w partiach
+  const graczeIds = new Set<string>()
+  partie?.forEach(partia => {
+    for (let i = 1; i <= 4; i++) {
+      const graczId = partia[`gracz${i}_id` as keyof typeof partia] as string
+      if (graczId) graczeIds.add(graczId)
+    }
+  })
+
+  // Pobierz dane graczy
+  const { data: gracze, error: graczeError } = await supabase
     .from('gracz')
-    .select('*')
-    .eq('turniej_id', params.id)
-    .order('aktualny_elo', { ascending: false })
+    .select('id, imie, nazwisko')
+    .in('id', Array.from(graczeIds))
 
-  async function usunPartie(partiaId: string) {
-    'use server'
-    const supabase = await createSupabaseServer()
+  if (graczeError) {
+    console.error('Błąd pobierania graczy:', graczeError)
+  }
+
+  // Przygotuj dane partii z informacjami o graczach
+  const partieZGraczami: Partia[] = partie?.map(partia => {
+    const graczePartii: GraczWPartii[] = []
     
-    // Najpierw cofnij zmiany Elo - pobierz aktualne dane graczy przed usunięciem
-    const { data: partia } = await supabase
-      .from('wyniki_partii')
-      .select('*')
-      .eq('id', partiaId)
-      .single()
-
-    if (partia) {
-      // Dla każdego gracza w partii
-      for (let i = 1; i <= partia.liczba_graczy; i++) {
-        const graczId = partia[`gracz${i}_id`];
-        if (graczId) {
-          // Pobierz aktualne dane gracza
-          const { data: gracz } = await supabase
-            .from('gracz')
-            .select('*')
-            .eq('id', graczId)
-            .single()
-
-          if (gracz) {
-            const malePunkty = partia[`male_punkty${i}`] || 0;
-            const duzyPunkt = partia.duzy_punkt_gracz_id === graczId ? 1 : 0;
-
-            // Przywróć poprzednie Elo i zmniejsz liczniki
-            await supabase
-              .from('gracz')
-              .update({ 
-                aktualny_elo: partia[`elo_przed${i}`],
-                liczba_partii: Math.max(0, gracz.liczba_partii - 1),
-                suma_malych_punktow: Math.max(0, gracz.suma_malych_punktow - malePunkty),
-                liczba_duzych_punktow: Math.max(0, gracz.liczba_duzych_punktow - duzyPunkt),
-                ostatnia_aktualizacja: new Date().toISOString()
-              })
-              .eq('id', graczId)
-          }
-        }
+    for (let i = 1; i <= partia.liczba_graczy; i++) {
+      const graczId = partia[`gracz${i}_id` as keyof typeof partia] as string
+      const gracz = gracze?.find(g => g.id === graczId)
+      
+      if (gracz) {
+        graczePartii.push({
+          id: gracz.id,
+          imie: gracz.imie,
+          nazwisko: gracz.nazwisko,
+          elo_przed: partia[`elo_przed${i}` as keyof typeof partia] as number || 1200,
+          elo_po: partia[`elo_po${i}` as keyof typeof partia] as number || 1200,
+          zmiana_elo: partia[`zmiana_elo${i}` as keyof typeof partia] as number || 0,
+          male_punkty: partia[`male_punkty${i}` as keyof typeof partia] as number || 0
+        })
       }
     }
-    
-    // Usuń partię
-    await supabase.from('wyniki_partii').delete().eq('id', partiaId)
-    redirect(`/admin/turniej/${params.id}/partie`)
-  }
 
-  async function przeliczElo() {
-    'use server'
-    const supabase = await createSupabaseServer()
-    await recalculateAllElo(supabase, params.id)
-    redirect(`/admin/turniej/${params.id}/partie?recalculated=true`)
-  }
+    return {
+      id: partia.id,
+      numer_partii: partia.numer_partii,
+      data_rozgrywki: partia.data_rozgrywki,
+      liczba_graczy: partia.liczba_graczy,
+      duzy_punkt_gracz_id: partia.duzy_punkt_gracz_id,
+      gracze: graczePartii
+    }
+  }) || []
+
+  // Oblicz następny numer partii
+  const kolejnyNumer = partie && partie.length > 0 
+    ? Math.max(...partie.map(p => p.numer_partii)) + 1 
+    : 1
 
   return (
-    <div className="p-8">
+    <div className="p-8 max-w-7xl mx-auto">
       {/* Nagłówek */}
-      <div className="mb-6">
-        <Link
-          href="/admin/turniej"
-          className="inline-flex items-center text-sm text-slate-400 hover:text-white mb-4"
-        >
-          <ArrowLeft className="h-4 w-4 mr-2" />
-          Powrót do listy turniejów
-        </Link>
-        <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between mb-8">
+        <div className="flex items-center space-x-4">
+          <Link
+            href="/admin/turniej"
+            className="inline-flex items-center text-sm text-slate-400 hover:text-white"
+          >
+            <ArrowLeft className="h-4 w-4 mr-2" />
+            Powrót do turniejów
+          </Link>
           <div>
-            <h1 className="text-2xl font-bold text-white">Partie turnieju</h1>
-            <p className="text-slate-400">{turniej.nazwa}</p>
-            <p className="text-sm text-slate-500">
-              Data: {new Date(turniej.data_turnieju).toLocaleDateString('pl-PL')}
+            <h1 className="text-3xl font-bold text-white">Partie turnieju</h1>
+            <p className="text-slate-400 mt-1">
+              {turniej?.nazwa} • {partieZGraczami.length} partii
             </p>
           </div>
-          <div className="flex space-x-3">
-            <form action={przeliczElo}>
-              <button
-                type="submit"
-                className="bg-orange-500 hover:bg-orange-600 text-white px-4 py-2 rounded-lg flex items-center text-sm"
-                onClick={(e) => {
-                  if (!confirm('Czy na pewno chcesz przeliczyć cały ranking Elo od początku? Ta operacja może chwilę potrwać.')) {
-                    e.preventDefault()
-                  }
-                }}
-              >
-                <RefreshCw className="h-4 w-4 mr-2" />
-                Przelicz Elo
-              </button>
-            </form>
-            <Link
-              href={`/admin/turniej/${params.id}/partie/nowa`}
-              className="bg-sky-500 hover:bg-sky-600 text-white px-4 py-2 rounded-lg flex items-center text-sm"
-            >
-              <Plus className="h-4 w-4 mr-2" />
-              Nowa partia
-            </Link>
-            <Link
-              href={`/admin/turniej/${params.id}/ranking`}
-              className="bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded-lg flex items-center text-sm"
-            >
-              <BarChart3 className="h-4 w-4 mr-2" />
-              Ranking
-            </Link>
-          </div>
+        </div>
+        
+        <div className="flex space-x-3">
+          <Link
+            href={`/admin/turniej/${turniejId}/partie/nowa`}
+            className="bg-sky-500 hover:bg-sky-600 text-white px-4 py-2 rounded-lg flex items-center"
+          >
+            <Plus className="h-4 w-4 mr-2" />
+            Nowa partia
+          </Link>
         </div>
       </div>
 
       {/* Statystyki */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
-        <div className="bg-slate-800/50 rounded-lg p-4 border border-slate-700">
-          <div className="text-slate-400 text-sm">Partii</div>
-          <div className="text-2xl font-bold text-white">{partie?.length || 0}</div>
-        </div>
-        <div className="bg-slate-800/50 rounded-lg p-4 border border-slate-700">
-          <div className="text-slate-400 text-sm">Graczy</div>
-          <div className="text-2xl font-bold text-white">{gracze?.length || 0}</div>
-        </div>
-        <div className="bg-slate-800/50 rounded-lg p-4 border border-slate-700">
-          <div className="text-slate-400 text-sm">Średni ranking</div>
-          <div className="text-2xl font-bold text-white">
-            {gracze && gracze.length > 0 
-              ? Math.round(gracze.reduce((acc, g) => acc + (g.aktualny_elo || 1200), 0) / gracze.length)
-              : '1200'}
+        <div className="bg-slate-800/50 rounded-xl border border-slate-700 p-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-slate-400 text-sm">Łącznie partii</p>
+              <p className="text-2xl font-bold text-white">{partieZGraczami.length}</p>
+            </div>
+            <Users className="h-8 w-8 text-slate-400" />
           </div>
         </div>
-        <div className="bg-slate-800/50 rounded-lg p-4 border border-slate-700">
-          <div className="text-slate-400 text-sm">Najwyższy ranking</div>
-          <div className="text-2xl font-bold text-white">
-            {gracze && gracze.length > 0 ? Math.round(gracze[0].aktualny_elo) : '1200'}
+        
+        <div className="bg-slate-800/50 rounded-xl border border-slate-700 p-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-slate-400 text-sm">Następna partia</p>
+              <p className="text-2xl font-bold text-white">#{kolejnyNumer}</p>
+            </div>
+            <Plus className="h-8 w-8 text-slate-400" />
+          </div>
+        </div>
+        
+        <div className="bg-slate-800/50 rounded-xl border border-slate-700 p-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-slate-400 text-sm">Średnio graczy</p>
+              <p className="text-2xl font-bold text-white">
+                {partieZGraczami.length > 0 
+                  ? Math.round(partieZGraczami.reduce((acc, p) => acc + p.liczba_graczy, 0) / partieZGraczami.length * 10) / 10 
+                  : 0}
+              </p>
+            </div>
+            <Users className="h-8 w-8 text-slate-400" />
+          </div>
+        </div>
+        
+        <div className="bg-slate-800/50 rounded-xl border border-slate-700 p-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-slate-400 text-sm">Ostatnia partia</p>
+              <p className="text-sm font-bold text-white">
+                {partieZGraczami.length > 0 
+                  ? new Date(partieZGraczami[partieZGraczami.length - 1].data_rozgrywki).toLocaleDateString('pl-PL')
+                  : 'Brak'}
+              </p>
+            </div>
+            <Calendar className="h-8 w-8 text-slate-400" />
           </div>
         </div>
       </div>
 
       {/* Lista partii */}
-      <div className="space-y-6">
-        {partie?.map((partia) => (
-          <div key={partia.id} className="bg-slate-800/50 rounded-xl border border-slate-700 p-6">
-            <div className="flex items-center justify-between mb-4">
+      <div className="bg-slate-800/50 rounded-xl border border-slate-700">
+        <div className="p-6 border-b border-slate-700">
+          <h2 className="text-xl font-bold text-white flex items-center">
+            <Trophy className="h-5 w-5 mr-2" />
+            Lista partii - {turniej?.nazwa}
+          </h2>
+          <p className="text-slate-400 text-sm mt-1">
+            Partie przypisane do tego turnieju
+          </p>
+        </div>
+
+        {partieZGraczami.length === 0 ? (
+          <div className="p-12 text-center">
+            <Trophy className="h-12 w-12 text-slate-400 mx-auto mb-4" />
+            <h3 className="text-lg font-semibold text-white mb-2">Brak partii w tym turnieju</h3>
+            <p className="text-slate-400 mb-6">Stwórz pierwszą partię dla tego turnieju</p>
+            <Link
+              href={`/admin/turniej/${turniejId}/partie/nowa`}
+              className="bg-sky-500 hover:bg-sky-600 text-white px-6 py-2 rounded-lg inline-flex items-center"
+            >
+              <Plus className="h-4 w-4 mr-2" />
+              Stwórz pierwszą partię
+            </Link>
+          </div>
+        ) : (
+          <div className="divide-y divide-slate-700">
+            {partieZGraczami.map((partia) => (
+              <PartiaCard 
+                key={partia.id} 
+                partia={partia} 
+                turniejId={turniejId}
+              />
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  )
+}
+
+// Komponent karty partii
+function PartiaCard({ partia, turniejId }: { partia: Partia, turniejId: string }) {
+  const zwyciezca = partia.gracze.find(g => g.id === partia.duzy_punkt_gracz_id)
+  
+  return (
+    <div className="p-6 hover:bg-slate-700/30 transition-colors">
+      <div className="flex items-center justify-between mb-4">
+        <div className="flex items-center space-x-4">
+          <div className="bg-slate-700 rounded-lg px-3 py-1">
+            <span className="text-white font-semibold">#{partia.numer_partii}</span>
+          </div>
+          <div className="text-slate-400 text-sm">
+            <Calendar className="h-4 w-4 inline mr-1" />
+            {new Date(partia.data_rozgrywki).toLocaleDateString('pl-PL')}
+          </div>
+          <div className="text-slate-400 text-sm">
+            <Users className="h-4 w-4 inline mr-1" />
+            {partia.liczba_graczy} graczy
+          </div>
+        </div>
+        
+        <Link
+          href={`/admin/turniej/${turniejId}/partie/${partia.id}`}
+          className="text-slate-400 hover:text-white flex items-center"
+        >
+          <Eye className="h-4 w-4 mr-1" />
+          Szczegóły
+        </Link>
+      </div>
+
+      {/* Gracze */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+        {partia.gracze.map((gracz) => (
+          <div 
+            key={gracz.id}
+            className={`p-4 rounded-lg border ${
+              gracz.id === partia.duzy_punkt_gracz_id
+                ? 'bg-yellow-500/10 border-yellow-500/30'
+                : 'bg-slate-700/30 border-slate-600'
+            }`}
+          >
+            <div className="flex justify-between items-start mb-2">
               <div>
-                <h3 className="text-lg font-semibold text-white">Partia #{partia.numer_partii}</h3>
+                <h4 className="font-semibold text-white">
+                  {gracz.imie} {gracz.nazwisko}
+                  {gracz.id === partia.duzy_punkt_gracz_id && (
+                    <Trophy className="h-4 w-4 text-yellow-500 inline ml-2" />
+                  )}
+                </h4>
                 <p className="text-slate-400 text-sm">
-                  Rozegrana: {new Date(partia.data_rozgrywki).toLocaleString('pl-PL')} • 
-                  {partia.liczba_graczy} graczy
+                  Małe punkty: {gracz.male_punkty}
                 </p>
               </div>
-              <div className="flex space-x-2">
-                <Link
-                  href={`/admin/turniej/${params.id}/partie/${partia.id}/edytuj`}
-                  className="p-2 text-slate-400 hover:text-white hover:bg-slate-700 rounded"
-                >
-                  <Edit3 className="h-4 w-4" />
-                </Link>
-                <form action={usunPartie.bind(null, partia.id)}>
-                  <button 
-                    type="submit"
-                    className="p-2 text-slate-400 hover:text-red-400 hover:bg-slate-700 rounded"
-                    onClick={(e) => {
-                      if (!confirm('Czy na pewno chcesz usunąć tę partię? Spowoduje to cofnięcie zmian rankingu Elo.')) {
-                        e.preventDefault()
-                      }
-                    }}
-                  >
-                    <Trash2 className="h-4 w-4" />
-                  </button>
-                </form>
+              
+              <div className={`flex items-center space-x-1 ${
+                gracz.zmiana_elo > 0 ? 'text-green-400' : 'text-red-400'
+              }`}>
+                {gracz.zmiana_elo > 0 ? (
+                  <TrendingUp className="h-4 w-4" />
+                ) : (
+                  <TrendingDown className="h-4 w-4" />
+                )}
+                <span className="text-sm font-medium">
+                  {gracz.zmiana_elo > 0 ? '+' : ''}{Math.round(gracz.zmiana_elo)}
+                </span>
               </div>
             </div>
             
-            {/* Gracze w partii */}
-            <div className="grid gap-3">
-              {[
-                { id: 1, gracz: partia.gracz1, miejsce: partia.miejsce1, male_punkty: partia.male_punkty1, elo_przed: partia.elo_przed1, elo_po: partia.elo_po1, zmiana_elo: partia.zmiana_elo1 },
-                { id: 2, gracz: partia.gracz2, miejsce: partia.miejsce2, male_punkty: partia.male_punkty2, elo_przed: partia.elo_przed2, elo_po: partia.elo_po2, zmiana_elo: partia.zmiana_elo2 },
-                { id: 3, gracz: partia.gracz3, miejsce: partia.miejsce3, male_punkty: partia.male_punkty3, elo_przed: partia.elo_przed3, elo_po: partia.elo_po3, zmiana_elo: partia.zmiana_elo3 },
-                { id: 4, gracz: partia.gracz4, miejsce: partia.miejsce4, male_punkty: partia.male_punkty4, elo_przed: partia.elo_przed4, elo_po: partia.elo_po4, zmiana_elo: partia.zmiana_elo4 }
-              ]
-              .filter(item => item.gracz)
-              .sort((a, b) => a.miejsce - b.miejsce)
-              .map((item) => (
-                <div 
-                  key={item.id} 
-                  className={`flex items-center justify-between p-3 rounded-lg ${
-                    partia.duzy_punkt_gracz_id === item.gracz.id 
-                      ? 'bg-green-500/20 border border-green-500/30' 
-                      : 'bg-slate-700/30'
-                  }`}
-                >
-                  <div className="flex items-center space-x-3">
-                    <span className={`w-6 h-6 flex items-center justify-center rounded-full text-xs font-bold ${
-                      item.miejsce === 1 ? 'bg-yellow-500 text-yellow-900' :
-                      item.miejsce === 2 ? 'bg-gray-400 text-gray-900' :
-                      item.miejsce === 3 ? 'bg-orange-700 text-orange-100' :
-                      'bg-slate-600 text-slate-300'
-                    }`}>
-                      {item.miejsce}
-                    </span>
-                    <span className="text-white font-medium">
-                      {item.gracz.imie} {item.gracz.nazwisko}
-                    </span>
-                    {partia.duzy_punkt_gracz_id === item.gracz.id && (
-                      <Trophy className="h-4 w-4 text-yellow-400" />
-                    )}
-                  </div>
-                  
-                  <div className="text-right">
-                    <div className="text-sm text-slate-400">
-                      Punkty: <span className="text-white font-medium">{item.male_punkty}</span>
-                    </div>
-                    <div className="text-xs text-slate-500">
-                      Elo: {Math.round(item.elo_przed)} → {Math.round(item.elo_po)} 
-                      <span className={`ml-1 ${item.zmiana_elo > 0 ? 'text-green-400' : 'text-red-400'}`}>
-                        ({item.zmiana_elo > 0 ? '+' : ''}{Math.round(item.zmiana_elo)})
-                      </span>
-                    </div>
-                  </div>
-                </div>
-              ))}
+            <div className="flex justify-between text-sm">
+              <span className="text-slate-400">
+                ELO: {Math.round(gracz.elo_przed)} → {Math.round(gracz.elo_po)}
+              </span>
             </div>
           </div>
         ))}
-
-        {(!partie || partie.length === 0) && (
-          <div className="text-center py-12 bg-slate-800/30 rounded-xl border border-slate-700">
-            <Users className="h-16 w-16 mx-auto mb-4 text-slate-500" />
-            <h3 className="text-lg font-semibold text-white mb-2">Brak partii</h3>
-            <p className="text-slate-400 mb-4">Dodaj pierwszą partię, aby rozpocząć turniej</p>
-            <Link
-              href={`/admin/turniej/${params.id}/partie/nowa`}
-              className="bg-sky-500 hover:bg-sky-600 text-white px-6 py-3 rounded-lg inline-flex items-center"
-            >
-              <Plus className="h-4 w-4 mr-2" />
-              Dodaj pierwszą partię
-            </Link>
-          </div>
-        )}
       </div>
     </div>
   )

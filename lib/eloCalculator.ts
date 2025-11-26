@@ -1,14 +1,25 @@
+// lib/eloCalculator.ts
 export interface EloConfig {
   k_factor_nowy_gracz: number;
   k_factor_staly_gracz: number;
   prog_staly_gracz: number;
+  k_factors: {
+    below_1400: number;
+    below_1800: number;
+    below_2000: number;
+    below_2200: number;
+    above_2200: number;
+  };
+  games_for_new_player: number;
+  bonus_k_for_new: number;
+  max_k_for_new: number;
 }
 
 export interface GraczWPartii {
   id: string;
-  miejsce: number;
   elo_przed: number;
   liczba_partii: number;
+  duzy_punkt: boolean;
 }
 
 export interface WynikElo {
@@ -16,6 +27,30 @@ export interface WynikElo {
   elo_po: number;
   zmiana_elo: number;
   k_factor: number;
+}
+
+// Dynamiczny współczynnik K jak w Google Script
+function getDynamicKFor(elo: number, games: number, config: EloConfig): number {
+  let K: number;
+  
+  // Podstawowy K na podstawie ELO
+  if (elo < 1400) K = config.k_factors.below_1400;
+  else if (elo < 1800) K = config.k_factors.below_1800;
+  else if (elo < 2000) K = config.k_factors.below_2000;
+  else if (elo < 2200) K = config.k_factors.below_2200;
+  else K = config.k_factors.above_2200;
+  
+  // Bonus dla nowych graczy
+  if (games < config.games_for_new_player) {
+    K = Math.min(config.max_k_for_new, K + config.bonus_k_for_new);
+  }
+  
+  return K;
+}
+
+// Uśrednianie K między graczami
+function pairK(Kw: number, Kl: number): number {
+  return (Kw > 0 && Kl > 0) ? (2 * Kw * Kl) / (Kw + Kl) : 0;
 }
 
 export function calculateEloChanges(
@@ -29,58 +64,59 @@ export function calculateEloChanges(
     throw new Error(`Nieprawidłowa liczba graczy: ${n}. Wymagane 2-4 graczy.`);
   }
 
-  const posortowaniGracze = [...gracze].sort((a, b) => a.miejsce - b.miejsce);
+  // Znajdź zwycięzcę
+  const zwyciezca = gracze.find(g => g.duzy_punkt);
+  if (!zwyciezca) {
+    throw new Error('Nie znaleziono gracza z dużym punktem');
+  }
 
-  for (let i = 0; i < n; i++) {
-    const gracz = posortowaniGracze[i];
-    
-    let k_factor = config.k_factor_staly_gracz;
-    if (gracz.liczba_partii < config.prog_staly_gracz) {
-      k_factor = config.k_factor_nowy_gracz;
-    }
+  // Oblicz skalowanie jak w Google Script
+  const scale = (n >= 3) ? (2 / (n - 1)) : 1;
 
-    let expected = 0;
-    const actual = calculateActualScore(gracz.miejsce, n);
+  // Oblicz zmiany dla każdego gracza
+  for (const gracz of gracze) {
+    let zmiana_elo = 0;
+    const k_gracza = getDynamicKFor(gracz.elo_przed, gracz.liczba_partii, config);
 
-    for (let j = 0; j < n; j++) {
-      if (i !== j) {
-        const opponent = posortowaniGracze[j];
-        expected += 1 / (1 + Math.pow(10, (opponent.elo_przed - gracz.elo_przed) / 400));
+    if (gracz.duzy_punkt) {
+      // ZWYCIĘZCA: Zyskuje od każdego przegranego
+      for (const przeciwnik of gracze) {
+        if (przeciwnik.id !== gracz.id) {
+          const k_przeciwnika = getDynamicKFor(przeciwnik.elo_przed, przeciwnik.liczba_partii, config);
+          const k_efektywne = pairK(k_gracza, k_przeciwnika);
+          
+          const expected = 1 / (1 + Math.pow(10, (przeciwnik.elo_przed - gracz.elo_przed) / 400));
+          const gain = k_efektywne * (1 - expected);
+          
+          zmiana_elo += gain;
+        }
       }
+    } else {
+      // PRZEGRANY: Trací tylko ze zwycięzcą
+      const k_zwyciezcy = getDynamicKFor(zwyciezca.elo_przed, zwyciezca.liczba_partii, config);
+      const k_efektywne = pairK(k_gracza, k_zwyciezcy);
+      
+      const expected = 1 / (1 + Math.pow(10, (zwyciezca.elo_przed - gracz.elo_przed) / 400));
+      zmiana_elo = k_efektywne * (0 - expected);
     }
 
-    if (n > 1) {
-      expected = expected / (n - 1);
-    }
+    // Zastosuj skalowanie
+    zmiana_elo *= scale;
 
-    const zmiana_elo = k_factor * (actual - expected);
     const elo_po = gracz.elo_przed + zmiana_elo;
 
     wyniki.push({
       id: gracz.id,
       elo_po: Math.round(elo_po * 100) / 100,
       zmiana_elo: Math.round(zmiana_elo * 100) / 100,
-      k_factor: k_factor
+      k_factor: k_gracza
     });
   }
 
   return wyniki;
 }
 
-function calculateActualScore(miejsce: number, liczbaGraczy: number): number {
-  switch (liczbaGraczy) {
-    case 2:
-      return miejsce === 1 ? 1.0 : 0.0;
-    case 3:
-      return miejsce === 1 ? 1.0 : miejsce === 2 ? 0.5 : 0.0;
-    case 4:
-      return miejsce === 1 ? 1.0 : miejsce === 2 ? 0.67 : miejsce === 3 ? 0.33 : 0.0;
-    default:
-      return 0.0;
-  }
-}
-
-export function validatePartia(gracze: { id: string, miejsce: number }[]): string[] {
+export function validatePartia(gracze: { id: string, duzy_punkt: boolean }[]): string[] {
   const errors: string[] = [];
   const n = gracze.length;
 
@@ -89,18 +125,17 @@ export function validatePartia(gracze: { id: string, miejsce: number }[]): strin
     return errors;
   }
 
-  const miejsca = gracze.map(g => g.miejsce);
-  const unikalneMiejsca = [...new Set(miejsca)];
-  
-  if (unikalneMiejsca.length !== n) {
-    errors.push(`Miejsca muszą być unikalne. Obecne miejsca: ${miejsca.join(', ')}`);
+  // Sprawdź unikalność graczy
+  const graczeIds = gracze.map(g => g.id);
+  const unikalniGracze = [...new Set(graczeIds)];
+  if (unikalniGracze.length !== n) {
+    errors.push('Gracze muszą być unikalni');
   }
 
-  for (const miejsce of miejsca) {
-    if (miejsce < 1 || miejsce > n) {
-      errors.push(`Nieprawidłowe miejsce: ${miejsce}. Miejsca muszą być w zakresie 1-${n}.`);
-      break;
-    }
+  // Sprawdź czy jest dokładnie jeden zwycięzca
+  const zwyciezcy = gracze.filter(g => g.duzy_punkt);
+  if (zwyciezcy.length !== 1) {
+    errors.push('Musi być dokładnie jeden zwycięzca (duży punkt)');
   }
 
   return errors;
@@ -152,16 +187,33 @@ export async function recalculateAllElo(supabase: any, turniej_id?: string) {
     .select('*')
     .single();
 
+  // Domyślna konfiguracja jeśli brak w bazie
+  const fullConfig: EloConfig = config || {
+    k_factor_nowy_gracz: 40,
+    k_factor_staly_gracz: 20,
+    prog_staly_gracz: 30,
+    k_factors: {
+      below_1400: 32,
+      below_1800: 28,
+      below_2000: 24,
+      below_2200: 18,
+      above_2200: 12
+    },
+    games_for_new_player: 20,
+    bonus_k_for_new: 8,
+    max_k_for_new: 40
+  };
+
   // Przelicz każdą partię od początku
   for (const partia of wszystkiePartie) {
-    await recalculateSinglePartia(supabase, partia, config);
+    await recalculateSinglePartia(supabase, partia, fullConfig);
   }
 
   console.log('Przeliczanie zakończone pomyślnie');
 }
 
-async function recalculateSinglePartia(supabase: any, partia: any, config: any) {
-  const gracze = [];
+async function recalculateSinglePartia(supabase: any, partia: any, config: EloConfig) {
+  const gracze: GraczWPartii[] = [];
   
   // Przygotuj dane graczy do obliczeń Elo
   for (let i = 1; i <= partia.liczba_graczy; i++) {
@@ -177,11 +229,9 @@ async function recalculateSinglePartia(supabase: any, partia: any, config: any) 
       if (gracz) {
         gracze.push({
           id: graczId,
-          miejsce: partia[`miejsce${i}`],
           elo_przed: gracz.aktualny_elo,
           liczba_partii: gracz.liczba_partii,
-          // Zapisz referencję do całego obiektu gracza dla późniejszej aktualizacji
-          gracz_data: gracz
+          duzy_punkt: partia.duzy_punkt_gracz_id === graczId
         });
       }
     }
@@ -199,6 +249,7 @@ async function recalculateSinglePartia(supabase: any, partia: any, config: any) 
     updateData[`elo_przed${i+1}`] = gracz.elo_przed;
     updateData[`elo_po${i+1}`] = elo?.elo_po;
     updateData[`zmiana_elo${i+1}`] = elo?.zmiana_elo;
+    updateData[`k_factor${i+1}`] = elo?.k_factor;
   }
 
   // Aktualizuj partię
@@ -207,20 +258,27 @@ async function recalculateSinglePartia(supabase: any, partia: any, config: any) 
     .update(updateData)
     .eq('id', partia.id);
 
-  // Aktualizuj graczy - używając pobranych danych zamiast sql
+  // Aktualizuj graczy
   for (const gracz of gracze) {
     const elo = noweElo.find(e => e.id === gracz.id);
     const index = gracze.findIndex(g => g.id === gracz.id) + 1;
     const malePunkty = partia[`male_punkty${index}`] || 0;
     const duzyPunkt = partia.duzy_punkt_gracz_id === gracz.id ? 1 : 0;
 
+    // Pobierz aktualne wartości przed aktualizacją
+    const { data: currentGracz } = await supabase
+      .from('gracz')
+      .select('suma_malych_punktow, liczba_duzych_punktow')
+      .eq('id', gracz.id)
+      .single();
+
     await supabase
       .from('gracz')
       .update({
         aktualny_elo: elo?.elo_po,
-        liczba_partii: gracz.gracz_data.liczba_partii + 1,
-        suma_malych_punktow: gracz.gracz_data.suma_malych_punktow + malePunkty,
-        liczba_duzych_punktow: gracz.gracz_data.liczba_duzych_punktow + duzyPunkt,
+        liczba_partii: gracz.liczba_partii + 1,
+        suma_malych_punktow: (currentGracz?.suma_malych_punktow || 0) + malePunkty,
+        liczba_duzych_punktow: (currentGracz?.liczba_duzych_punktow || 0) + duzyPunkt,
         ostatnia_aktualizacja: new Date().toISOString()
       })
       .eq('id', gracz.id);
