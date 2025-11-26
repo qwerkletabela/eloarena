@@ -11,6 +11,8 @@ type Row = {
   zakonczenie_turnieju: string | null
   gsheet_url: string | null
   limit_graczy: number | null
+  miejsce_id: string | null
+  // UJEDNOLICONE: miejsce_turnieju jako pojedynczy obiekt (nie tablica)
   miejsce_turnieju: {
     id: string
     nazwa: string
@@ -144,6 +146,7 @@ function createGoogleCalendarUrl(r: Row): string | null {
   if (r.gsheet_url) details.push(`Arkusz Google: ${r.gsheet_url}`)
   if (r.zakonczenie_turnieju) details.push(`Zakończenie: ${formatTimeHHMM(r.zakonczenie_turnieju)}`)
   
+  // UJEDNOLICONE: dostęp do pojedynczego obiektu
   if (r.miejsce_turnieju) {
     details.push(`Miejsce: ${r.miejsce_turnieju.nazwa}, ${r.miejsce_turnieju.miasto}`)
   }
@@ -172,15 +175,25 @@ function TournamentCard({ r }: { r: Row }) {
   const badge = statusBadge(start, end)
   const calendarUrl = createGoogleCalendarUrl(r)
 
+  // UJEDNOLICONE: dostęp do pojedynczego obiektu
   const miejsce = r.miejsce_turnieju
-  
-  // Poprawione sprawdzenie współrzędnych
-  const hasCoordinates = miejsce?.latitude != null && 
-                         miejsce?.longitude != null &&
-                         !isNaN(Number(miejsce.latitude)) && 
-                         !isNaN(Number(miejsce.longitude)) &&
-                         Math.abs(Number(miejsce.latitude)) <= 90 &&
-                         Math.abs(Number(miejsce.longitude)) <= 180
+
+  // Sprawdzanie czy mamy poprawne współrzędne
+  const hasValidCoordinates = () => {
+    if (!miejsce) return false
+    if (miejsce.latitude === null || miejsce.longitude === null) return false
+    
+    const lat = Number(miejsce.latitude)
+    const lng = Number(miejsce.longitude)
+    
+    return !isNaN(lat) && !isNaN(lng) && 
+           lat >= -90 && lat <= 90 && 
+           lng >= -180 && lng <= 180
+  }
+
+  const hasCoords = hasValidCoordinates()
+  const lat = hasCoords ? Number(miejsce!.latitude) : null
+  const lng = hasCoords ? Number(miejsce!.longitude) : null
 
   return (
     <details className="group rounded-xl border border-slate-600/70 bg-slate-900/70 px-4 py-3 shadow-sm open:shadow-md transition-shadow">
@@ -236,6 +249,11 @@ function TournamentCard({ r }: { r: Row }) {
                 {miejsce.nazwa}, {miejsce.miasto}
                 {miejsce.wojewodztwo && `, ${miejsce.wojewodztwo}`}
                 {miejsce.adres && ` (${miejsce.adres})`}
+                {hasCoords && (
+                  <span className="text-green-400 ml-2">
+                    ✓ Współrzędne dostępne
+                  </span>
+                )}
               </li>
             )}
             {r.limit_graczy && (
@@ -309,12 +327,12 @@ function TournamentCard({ r }: { r: Row }) {
         {/* Sekcja z mapą */}
         <div className="space-y-2">
           <div className="text-sm font-medium text-sky-100">Lokalizacja</div>
-          {hasCoordinates && miejsce ? (
+          {hasCoords && miejsce ? (
             <div className="overflow-hidden rounded-lg border border-slate-600 bg-slate-900">
               <div className="aspect-[16/9]">
                 <iframe
                   title={`Mapa ${r.nazwa}`}
-                  src={`https://maps.google.com/maps?q=${miejsce.latitude},${miejsce.longitude}&z=15&output=embed`}
+                  src={`https://maps.google.com/maps?q=${lat},${lng}&z=15&output=embed`}
                   className="h-full w-full border-0"
                   loading="lazy"
                   referrerPolicy="no-referrer-when-downgrade"
@@ -324,7 +342,7 @@ function TournamentCard({ r }: { r: Row }) {
               <div className="border-t border-slate-700 bg-slate-900/90 p-2">
                 <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
                   <a
-                    href={`https://www.google.com/maps/search/?api=1&query=${miejsce.latitude},${miejsce.longitude}`}
+                    href={`https://www.google.com/maps/search/?api=1&query=${lat},${lng}`}
                     target="_blank"
                     rel="noreferrer"
                     className="text-xs font-medium text-sky-300 hover:text-sky-100 hover:underline"
@@ -333,7 +351,7 @@ function TournamentCard({ r }: { r: Row }) {
                   </a>
                   <div className="flex gap-2">
                     <a
-                      href={`https://www.google.com/maps/dir/?api=1&destination=${miejsce.latitude},${miejsce.longitude}`}
+                      href={`https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}`}
                       target="_blank"
                       rel="noreferrer"
                       className="inline-flex items-center gap-1 rounded-full bg-green-600 hover:bg-green-500 px-3 py-1 text-xs font-medium text-white transition"
@@ -357,6 +375,11 @@ function TournamentCard({ r }: { r: Row }) {
           ) : miejsce ? (
             <div className="rounded-md border border-slate-600 bg-slate-900/80 px-3 py-2 text-sm text-sky-100/80">
               Brak współrzędnych dla miejsca: {miejsce.nazwa}
+              {miejsce.adres && (
+                <div className="mt-1 text-xs opacity-70">
+                  Adres: {miejsce.adres}
+                </div>
+              )}
             </div>
           ) : (
             <div className="rounded-md border border-slate-600 bg-slate-900/80 px-3 py-2 text-sm text-sky-100/80">
@@ -372,6 +395,7 @@ function TournamentCard({ r }: { r: Row }) {
 export default async function TurniejListPage() {
   const supabase = await createSupabaseServer()
   
+  // Pobieramy dane z obu tabel przez relację
   const { data: rows, error } = await supabase
     .from('turniej')
     .select(`
@@ -381,8 +405,8 @@ export default async function TurniejListPage() {
       godzina_turnieju,
       zakonczenie_turnieju,
       gsheet_url,
-      arkusz_nazwa,
       limit_graczy,
+      miejsce_id,
       miejsce_turnieju (
         id,
         nazwa,
@@ -409,62 +433,38 @@ export default async function TurniejListPage() {
     )
   }
 
-  // OPCJA 2: Użycie reduce z jednym przejściem
-  const { futureTournaments, pastTournaments } = rows?.reduce((acc, row) => {
-    const start = joinDateTime(row.data_turnieju, row.godzina_turnieju)
-    const end = row.zakonczenie_turnieju
-      ? joinDateTime(row.data_turnieju, row.zakonczenie_turnieju)
-      : null
-
-    if (isPastTournament(start, end)) {
-      acc.pastTournaments.push(row)
-    } else {
-      acc.futureTournaments.push(row)
-    }
-    return acc
-  }, { futureTournaments: [] as Row[], pastTournaments: [] as Row[] }) || { futureTournaments: [], pastTournaments: [] }
-
-  // Sortowanie tylko przeszłych turniejów (od najnowszych do najstarszych)
-  pastTournaments.sort((a, b) => {
-    const dateA = joinDateTime(a.data_turnieju, a.godzina_turnieju)?.getTime() || 0
-    const dateB = joinDateTime(b.data_turnieju, b.godzina_turnieju)?.getTime() || 0
-    return dateB - dateA
-  })
+  // Diagnostyka - sprawdź czy dane są pobierane poprawnie
+  if (rows && process.env.NODE_ENV === 'development') {
+    console.log('Liczba turniejów:', rows.length)
+    rows.forEach((row, index) => {
+      const miejsce = row.miejsce_turnieju
+      console.log(`Turniej ${index + 1}:`, {
+        nazwa: row.nazwa,
+        data: row.data_turnieju,
+        miejsce_id: row.miejsce_id,
+        miejsce: miejsce ? {
+          nazwa: miejsce.nazwa,
+          latitude: miejsce.latitude,
+          longitude: miejsce.longitude
+        } : 'BRAK MIEJSCA'
+      })
+    })
+  }
 
   return (
     <main className="flex min-h-[calc(100vh-4rem)] items-center justify-center px-4 py-8">
       <div className="w-full max-w-5xl rounded-2xl bg-slate-800/95 border border-slate-700 shadow-[0_14px_40px_rgba(0,0,0,0.8)] p-6 space-y-8">
         <h1 className="text-2xl font-semibold text-sky-50 text-center">
-          Turnieje
+          Wszystkie turnieje
         </h1>
 
-        {futureTournaments.length > 0 && (
+        {rows && rows.length > 0 ? (
           <div className="space-y-4">
-            <h2 className="text-xl font-semibold text-green-100 border-b border-green-500/30 pb-2">
-              Przyszłe turnieje
-            </h2>
-            <div className="space-y-4">
-              {futureTournaments.map((r) => (
-                <TournamentCard key={r.id} r={r} />
-              ))}
-            </div>
+            {rows.map((r) => (
+              <TournamentCard key={r.id} r={r} />
+            ))}
           </div>
-        )}
-
-        {pastTournaments.length > 0 && (
-          <div className="space-y-4">
-            <h2 className="text-xl font-semibold text-red-100 border-b border-red-500/30 pb-2">
-              Zakończone turnieje
-            </h2>
-            <div className="space-y-4">
-              {pastTournaments.map((r) => (
-                <TournamentCard key={r.id} r={r} />
-              ))}
-            </div>
-          </div>
-        )}
-
-        {!rows?.length && (
+        ) : (
           <div className="rounded-md border border-slate-600 bg-slate-900/80 px-4 py-6 text-sm text-sky-100/80 text-center">
             Brak turniejów.
           </div>
