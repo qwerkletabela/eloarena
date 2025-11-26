@@ -1,6 +1,14 @@
-import Link from 'next/link'
-import { redirect } from 'next/navigation'
 import { createSupabaseServer } from '@/lib/supabase/server'
+import { 
+  Users, 
+  Trophy, 
+  UserPlus, 
+  BarChart3,
+  Calendar,
+  MapPin,
+  Settings
+} from 'lucide-react'
+import Link from 'next/link'
 
 export const dynamic = 'force-dynamic'
 export const revalidate = 0
@@ -8,23 +16,15 @@ export const revalidate = 0
 export default async function AdminPage() {
   const supabase = await createSupabaseServer()
 
-  // kto jest zalogowany?
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) {
-    redirect('/auth/signin')
-  }
-
-  // sprawdzenie roli admin
-  const { data: isAdmin } = await supabase.rpc('is_admin')
-  if (!isAdmin) {
-    redirect('/')
-  }
-
-  // proste statystyki (bez pobierania całych rekordów)
-  const [turnieje, gracze, uzytkownicy] = await Promise.all([
+  // Pobieranie statystyk
+  const [turnieje, gracze, uzytkownicy, ostatnieTurnieje] = await Promise.all([
     supabase.from('turniej').select('id', { count: 'exact', head: true }),
     supabase.from('gracz').select('id', { count: 'exact', head: true }),
     supabase.from('profiles').select('id', { count: 'exact', head: true }),
+    supabase.from('turniej')
+      .select('nazwa, data')
+      .order('data', { ascending: false })
+      .limit(3)
   ])
 
   const cntTurnieje = turnieje.count ?? 0
@@ -32,115 +32,223 @@ export default async function AdminPage() {
   const cntUsers = uzytkownicy.count ?? 0
 
   return (
-    
-    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900">
-      <main className="flex min-h-[calc(100vh-4rem)] items-center justify-center px-4 py-8">
-        <div className="w-full max-w-4xl rounded-2xl bg-slate-800/95 border border-slate-700 shadow-[0_14px_40px_rgba(0,0,0,0.8)] p-6 space-y-6">
-          <header className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-            <div>
-              <h1 className="text-2xl font-semibold text-sky-50">Panel administratora</h1>
-              <p className="text-sm text-sky-200/80">
-                Zarządzanie użytkownikami, turniejami i danymi.
-              </p>
-            </div>
-            <div className="rounded-full border border-slate-600 bg-slate-900/80 px-4 py-1.5 text-xs text-sky-200">
-              <span className="opacity-70">Zalogowano jako:</span>{' '}
-              <span className="font-medium">{user.email ?? '—'}</span>{' '}
-              <span className="ml-2 rounded-full bg-red-600/80 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-white">
-                admin
-              </span>
-            </div>
-          </header>
+    <main className="p-8">
+      {/* Welcome Section */}
+      <div className="mb-8">
+        <h1 className="text-3xl font-bold text-white mb-2">
+          Witaj w panelu administratora
+        </h1>
+        <p className="text-slate-400">
+          Zarządzaj użytkownikami, turniejami i ustawieniami systemu
+        </p>
+      </div>
 
-          {/* statystyki */}
-          <section className="grid gap-3 sm:grid-cols-3">
-            <div className="rounded-xl border border-slate-700 bg-slate-900/70 px-4 py-3">
-              <div className="text-xs uppercase tracking-wide text-slate-400">Turnieje</div>
-              <div className="mt-1 text-2xl font-semibold text-sky-100">{cntTurnieje}</div>
+      {/* Statistics Grid */}
+      <div className="grid grid-cols-1 gap-6 mb-8 sm:grid-cols-2 lg:grid-cols-4">
+        <div className="rounded-2xl bg-slate-800/50 p-6 border border-slate-700 backdrop-blur-sm">
+          <div className="flex items-center">
+            <div className="rounded-lg bg-blue-500/20 p-3">
+              <Trophy className="h-6 w-6 text-blue-400" />
             </div>
-            <div className="rounded-xl border border-slate-700 bg-slate-900/70 px-4 py-3">
-              <div className="text-xs uppercase tracking-wide text-slate-400">Gracze</div>
-              <div className="mt-1 text-2xl font-semibold text-sky-100">{cntGracze}</div>
+            <div className="ml-4">
+              <p className="text-sm font-medium text-slate-400">Turnieje</p>
+              <p className="text-2xl font-bold text-white">{cntTurnieje}</p>
             </div>
-            <div className="rounded-xl border border-slate-700 bg-slate-900/70 px-4 py-3">
-              <div className="text-xs uppercase tracking-wide text-slate-400">Użytkownicy</div>
-              <div className="mt-1 text-2xl font-semibold text-sky-100">{cntUsers}</div>
-            </div>
-          </section>
+          </div>
+        </div>
 
-          {/* kafelki na akcje */}
-          <section className="grid gap-4 sm:grid-cols-2">
+        <div className="rounded-2xl bg-slate-800/50 p-6 border border-slate-700 backdrop-blur-sm">
+          <div className="flex items-center">
+            <div className="rounded-lg bg-green-500/20 p-3">
+              <Users className="h-6 w-6 text-green-400" />
+            </div>
+            <div className="ml-4">
+              <p className="text-sm font-medium text-slate-400">Gracze</p>
+              <p className="text-2xl font-bold text-white">{cntGracze}</p>
+            </div>
+          </div>
+        </div>
+
+        <div className="rounded-2xl bg-slate-800/50 p-6 border border-slate-700 backdrop-blur-sm">
+          <div className="flex items-center">
+            <div className="rounded-lg bg-purple-500/20 p-3">
+              <UserPlus className="h-6 w-6 text-purple-400" />
+            </div>
+            <div className="ml-4">
+              <p className="text-sm font-medium text-slate-400">Użytkownicy</p>
+              <p className="text-2xl font-bold text-white">{cntUsers}</p>
+            </div>
+          </div>
+        </div>
+
+        <div className="rounded-2xl bg-slate-800/50 p-6 border border-slate-700 backdrop-blur-sm">
+          <div className="flex items-center">
+            <div className="rounded-lg bg-orange-500/20 p-3">
+              <BarChart3 className="h-6 w-6 text-orange-400" />
+            </div>
+            <div className="ml-4">
+              <p className="text-sm font-medium text-slate-400">Aktywność</p>
+              <p className="text-2xl font-bold text-white">24h</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 gap-8 lg:grid-cols-3">
+        {/* Quick Actions */}
+        <div className="lg:col-span-2">
+          <h2 className="text-xl font-bold text-white mb-6">Szybkie akcje</h2>
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <Link
               href="/admin/users"
-              className="group rounded-xl border border-slate-700 bg-slate-900/80 p-4 transition hover:border-sky-400/70 hover:bg-slate-900"
+              className="group relative rounded-2xl bg-slate-800/50 p-6 border border-slate-700 backdrop-blur-sm transition-all hover:border-sky-400 hover:bg-slate-800 hover:transform hover:-translate-y-1"
             >
-              <div className="mb-2 flex items-center justify-between">
-                <h2 className="text-sm font-semibold text-sky-100">
-                  Zarządzaj użytkownikami
-                </h2>
-                <span className="text-xs text-sky-300 group-hover:translate-x-0.5 transition-transform">
-                  → {/* strzałka */}
-                </span>
+              <div className="flex items-start justify-between">
+                <div>
+                  <div className="rounded-lg bg-blue-500/20 p-3 inline-block">
+                    <Users className="h-6 w-6 text-blue-400" />
+                  </div>
+                  <h3 className="mt-4 text-lg font-semibold text-white">
+                    Zarządzaj użytkownikami
+                  </h3>
+                  <p className="mt-2 text-sm text-slate-400">
+                    Przeglądaj konta, zmieniaj role i uprawnienia
+                  </p>
+                </div>
+                <div className="text-sky-400 transition-transform group-hover:translate-x-1">
+                  →
+                </div>
               </div>
-              <p className="text-xs text-slate-300">
-                Podgląd kont, zmiana ról (user/admin).
-              </p>
             </Link>
 
             <Link
               href="/admin/turniej"
-              className="group rounded-xl border border-slate-700 bg-slate-900/80 p-4 transition hover:border-sky-400/70 hover:bg-slate-900"
+              className="group relative rounded-2xl bg-slate-800/50 p-6 border border-slate-700 backdrop-blur-sm transition-all hover:border-green-400 hover:bg-slate-800 hover:transform hover:-translate-y-1"
             >
-              <div className="mb-2 flex items-center justify-between">
-                <h2 className="text-sm font-semibold text-sky-100">
-                  Zarządzaj turniejami
-                </h2>
-                <span className="text-xs text-sky-300 group-hover:translate-x-0.5 transition-transform">
+              <div className="flex items-start justify-between">
+                <div>
+                  <div className="rounded-lg bg-green-500/20 p-3 inline-block">
+                    <Trophy className="h-6 w-6 text-green-400" />
+                  </div>
+                  <h3 className="mt-4 text-lg font-semibold text-white">
+                    Zarządzaj turniejami
+                  </h3>
+                  <p className="mt-2 text-sm text-slate-400">
+                    Edytuj turnieje, importuj dane, zarządzaj uczestnikami
+                  </p>
+                </div>
+                <div className="text-green-400 transition-transform group-hover:translate-x-1">
                   →
-                </span>
+                </div>
               </div>
-              <p className="text-xs text-slate-300">
-                Lista turniejów, edycja danych, import z arkusza, mapa, usuwanie.
-              </p>
             </Link>
 
             <Link
               href="/turniej/new"
-              className="group rounded-xl border border-sky-700 bg-sky-900/70 p-4 transition hover:border-sky-400 hover:bg-sky-900"
+              className="group relative rounded-2xl bg-gradient-to-r from-sky-600 to-blue-600 p-6 border border-sky-500 backdrop-blur-sm transition-all hover:transform hover:-translate-y-1 hover:shadow-xl"
             >
-              <div className="mb-2 flex items-center justify-between">
-                <h2 className="text-sm font-semibold text-sky-50">
-                  Dodaj nowy turniej
-                </h2>
-                <span className="text-xs text-sky-100 group-hover:translate-x-0.5 transition-transform">
+              <div className="flex items-start justify-between">
+                <div>
+                  <div className="rounded-lg bg-white/20 p-3 inline-block">
+                    <Calendar className="h-6 w-6 text-white" />
+                  </div>
+                  <h3 className="mt-4 text-lg font-semibold text-white">
+                    Nowy turniej
+                  </h3>
+                  <p className="mt-2 text-sm text-sky-100">
+                    Utwórz nowy turniej z pełną konfiguracją
+                  </p>
+                </div>
+                <div className="text-white transition-transform group-hover:translate-x-1">
                   +
-                </span>
+                </div>
               </div>
-              <p className="text-xs text-sky-100/80">
-                Utwórz nowy turniej, ustaw datę, godziny, limit graczy, arkusz i lokalizację.
-              </p>
             </Link>
 
             <Link
-              href="/admin/miejsca/"
-              className="group rounded-xl border border-slate-700 bg-slate-900/80 p-4 transition hover:border-sky-400/70 hover:bg-slate-900"
+              href="/admin/miejsca"
+              className="group relative rounded-2xl bg-slate-800/50 p-6 border border-slate-700 backdrop-blur-sm transition-all hover:border-orange-400 hover:bg-slate-800 hover:transform hover:-translate-y-1"
             >
-              <div className="mb-2 flex items-center justify-between">
-                <h2 className="text-sm font-semibold text-sky-100">
-                  Zarządzaj miejscem turnieju.
-                </h2>
-                <span className="text-xs text-sky-300 group-hover:translate-x-0.5 transition-transform">
+              <div className="flex items-start justify-between">
+                <div>
+                  <div className="rounded-lg bg-orange-500/20 p-3 inline-block">
+                    <MapPin className="h-6 w-6 text-orange-400" />
+                  </div>
+                  <h3 className="mt-4 text-lg font-semibold text-white">
+                    Miejsca turniejów
+                  </h3>
+                  <p className="mt-2 text-sm text-slate-400">
+                    Zarządzaj lokalizacjami i mapą turniejów
+                  </p>
+                </div>
+                <div className="text-orange-400 transition-transform group-hover:translate-x-1">
                   →
-                </span>
+                </div>
               </div>
-              <p className="text-xs text-slate-300">
-                Przegląd i zarządzanie tabelą miejscem turnieju.
-              </p>
             </Link>
-          </section>
+          </div>
         </div>
-      </main>
-    {/* DODANE: Zamknięcie kontenera z tłem */}
-    </div>
+
+        {/* Sidebar - Ostatnie turnieje i dodatkowe opcje */}
+        <div className="space-y-6">
+          {/* Ostatnie turnieje */}
+          <div className="rounded-2xl bg-slate-800/50 p-6 border border-slate-700 backdrop-blur-sm">
+            <h3 className="text-lg font-semibold text-white mb-4">
+              Ostatnie turnieje
+            </h3>
+            <div className="space-y-3">
+              {ostatnieTurnieje.data?.map((turniej, index) => (
+                <div key={index} className="flex items-center space-x-3 p-3 rounded-lg bg-slate-700/50">
+                  <Trophy className="h-4 w-4 text-yellow-400" />
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium text-white truncate">
+                      {turniej.nazwa}
+                    </p>
+                    <p className="text-xs text-slate-400">
+                      {new Date(turniej.data).toLocaleDateString('pl-PL')}
+                    </p>
+                  </div>
+                </div>
+              ))}
+              {(!ostatnieTurnieje.data || ostatnieTurnieje.data.length === 0) && (
+                <p className="text-sm text-slate-400 text-center py-4">
+                  Brak turniejów
+                </p>
+              )}
+            </div>
+          </div>
+
+          {/* Dodatkowe narzędzia */}
+          <div className="rounded-2xl bg-slate-800/50 p-6 border border-slate-700 backdrop-blur-sm">
+            <h3 className="text-lg font-semibold text-white mb-4">
+              Narzędzia systemowe
+            </h3>
+            <div className="space-y-3">
+              <Link
+                href="/admin/backup"
+                className="flex items-center space-x-3 p-3 rounded-lg bg-slate-700/50 hover:bg-slate-700 transition-colors"
+              >
+                <Settings className="h-4 w-4 text-slate-400" />
+                <span className="text-sm text-white">Kopia zapasowa</span>
+              </Link>
+              <Link
+                href="/admin/logs"
+                className="flex items-center space-x-3 p-3 rounded-lg bg-slate-700/50 hover:bg-slate-700 transition-colors"
+              >
+                <BarChart3 className="h-4 w-4 text-slate-400" />
+                <span className="text-sm text-white">Logi systemowe</span>
+              </Link>
+              <Link
+                href="/admin/settings"
+                className="flex items-center space-x-3 p-3 rounded-lg bg-slate-700/50 hover:bg-slate-700 transition-colors"
+              >
+                <Settings className="h-4 w-4 text-slate-400" />
+                <span className="text-sm text-white">Ustawienia</span>
+              </Link>
+            </div>
+          </div>
+        </div>
+      </div>
+    </main>
   )
 }
