@@ -44,6 +44,7 @@ export default function AdminSidebar({ user }: AdminSidebarProps) {
     { href: '/admin', icon: Home, label: 'Dashboard' },
     { href: '/admin/users', icon: Users, label: 'Użytkownicy' },
     { href: '/admin/turniej', icon: Trophy, label: 'Turnieje' },
+    { href: '/admin/partie', icon: Trophy, label: 'Partie' },
     { href: '/turniej/new', icon: Calendar, label: 'Nowy Turniej' },
     { href: '/admin/miejsca', icon: MapPin, label: 'Miejsca' },
     { href: '/admin/ustawienia', icon: Settings, label: 'Ustawienia' },

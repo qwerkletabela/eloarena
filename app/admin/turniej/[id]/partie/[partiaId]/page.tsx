@@ -1,13 +1,39 @@
+'use client'
+
 import Link from 'next/link'
-import { createSupabaseServer } from '@/lib/supabase/server'
+import { useRouter } from 'next/navigation'
 import { 
   ArrowLeft, 
   Trophy, 
   Users, 
   Calendar,
   TrendingUp,
-  TrendingDown
+  TrendingDown,
+  Trash2
 } from 'lucide-react'
+import { useState, useEffect } from 'react'
+
+interface GraczWPartii {
+  id: string
+  imie: string
+  nazwisko: string
+  male_punkty: number
+  elo_przed: number
+  elo_po: number
+  zmiana_elo: number
+}
+
+interface Partia {
+  id: string
+  numer_partii: number
+  data_rozgrywki: string
+  liczba_graczy: number
+  duzy_punkt_gracz_id: string
+  turniej: {
+    id: string
+    nazwa: string
+  }
+}
 
 interface PartiaDetailPageProps {
   params: Promise<{
@@ -16,24 +42,82 @@ interface PartiaDetailPageProps {
   }>
 }
 
-export default async function PartiaDetailPage({ params }: PartiaDetailPageProps) {
-  // Oczekujemy na params
-  const { id: turniejId, partiaId } = await params;
-  const supabase = await createSupabaseServer()
+export default function PartiaDetailPage({ params }: PartiaDetailPageProps) {
+  const router = useRouter()
+  const [partia, setPartia] = useState<Partia | null>(null)
+  const [graczeWPartii, setGraczeWPartii] = useState<GraczWPartii[]>([])
+  const [loading, setLoading] = useState(true)
+  const [deleting, setDeleting] = useState(false)
+  const [turniejId, setTurniejId] = useState<string>('')
+  const [partiaId, setPartiaId] = useState<string>('')
 
-  // Pobierz dane partii - UPEWNIJ SIĘ ŻE FILTRUJEMY PO TURNIEJU!
-  const { data: partia, error: partiaError } = await supabase
-    .from('wyniki_partii')
-    .select(`
-      *,
-      turniej:turniej_id(id, nazwa)
-    `)
-    .eq('id', partiaId)
-    .eq('turniej_id', turniejId)
-    .single()
+  // Pobierz parametry i dane partii
+  useEffect(() => {
+    const fetchData = async () => {
+      const resolvedParams = await params
+      const { id: turniejId, partiaId } = resolvedParams
+      
+      setTurniejId(turniejId)
+      setPartiaId(partiaId)
+      
+      try {
+        // Pobierz dane partii
+        const response = await fetch(`/api/partie/${partiaId}?turniejId=${turniejId}`)
+        if (response.ok) {
+          const data = await response.json()
+          setPartia(data.partia)
+          setGraczeWPartii(data.graczeWPartii)
+        }
+      } catch (error) {
+        console.error('Błąd pobierania danych partii:', error)
+      } finally {
+        setLoading(false)
+      }
+    }
 
-  if (partiaError || !partia) {
-    console.error('Błąd pobierania partii:', partiaError)
+    fetchData()
+  }, [params])
+
+  // Funkcja do kasowania partii
+  const handleDelete = async () => {
+    if (!confirm('Czy na pewno chcesz usunąć tę partię? Ta operacja jest nieodwracalna i wymaga przeliczenia rankingu.')) {
+      return
+    }
+
+    setDeleting(true)
+    try {
+      const response = await fetch(`/admin/turniej/${turniejId}/partie/${partiaId}`, {
+        method: 'DELETE',
+      })
+
+      if (response.ok) {
+        // Przekieruj do listy partii
+        router.push(`/admin/turniej/${turniejId}/partie`)
+        router.refresh()
+      } else {
+        const error = await response.json()
+        alert(`Błąd: ${error.errors?.join(', ') || 'Wystąpił nieznany błąd'}`)
+      }
+    } catch (error) {
+      console.error('Błąd podczas usuwania partii:', error)
+      alert('Wystąpił błąd podczas usuwania partii')
+    } finally {
+      setDeleting(false)
+    }
+  }
+
+  if (loading) {
+    return (
+      <div className="p-8 max-w-4xl mx-auto">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-sky-500 mx-auto"></div>
+          <p className="text-slate-400 mt-4">Ładowanie danych partii...</p>
+        </div>
+      </div>
+    )
+  }
+
+  if (!partia) {
     return (
       <div className="p-8 max-w-4xl mx-auto">
         <div className="text-center">
@@ -50,37 +134,6 @@ export default async function PartiaDetailPage({ params }: PartiaDetailPageProps
         </div>
       </div>
     )
-  }
-
-  // Pobierz dane graczy
-  const graczeIds = []
-  for (let i = 1; i <= partia.liczba_graczy; i++) {
-    const graczId = partia[`gracz${i}_id` as keyof typeof partia]
-    if (graczId) graczeIds.push(graczId)
-  }
-
-  const { data: gracze } = await supabase
-    .from('gracz')
-    .select('id, imie, nazwisko')
-    .in('id', graczeIds)
-
-  // Przygotuj dane graczy w partii
-  const graczeWPartii = []
-  for (let i = 1; i <= partia.liczba_graczy; i++) {
-    const graczId = partia[`gracz${i}_id` as keyof typeof partia]
-    const gracz = gracze?.find(g => g.id === graczId)
-    
-    if (gracz) {
-      graczeWPartii.push({
-        id: gracz.id,
-        imie: gracz.imie,
-        nazwisko: gracz.nazwisko,
-        male_punkty: partia[`male_punkty${i}` as keyof typeof partia] as number || 0,
-        elo_przed: partia[`elo_przed${i}` as keyof typeof partia] as number || 1200,
-        elo_po: partia[`elo_po${i}` as keyof typeof partia] as number || 1200,
-        zmiana_elo: partia[`zmiana_elo${i}` as keyof typeof partia] as number || 0
-      })
-    }
   }
 
   const zwyciezca = graczeWPartii.find(g => g.id === partia.duzy_punkt_gracz_id)
@@ -104,6 +157,16 @@ export default async function PartiaDetailPage({ params }: PartiaDetailPageProps
             </p>
           </div>
         </div>
+
+        {/* Przycisk usuwania w szczegółach */}
+        <button
+          onClick={handleDelete}
+          disabled={deleting}
+          className="bg-red-500 hover:bg-red-600 disabled:bg-red-400 text-white px-4 py-2 rounded-lg flex items-center transition-colors"
+        >
+          <Trash2 className="h-4 w-4 mr-2" />
+          {deleting ? 'Usuwanie...' : 'Usuń partię'}
+        </button>
       </div>
 
       {/* Informacje o partii */}

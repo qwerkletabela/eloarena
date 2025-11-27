@@ -8,7 +8,9 @@ import {
   ArrowLeft,
   Eye,
   TrendingUp,
-  TrendingDown
+  TrendingDown,
+  Trash2,
+  AlertTriangle
 } from 'lucide-react'
 
 interface GraczWPartii {
