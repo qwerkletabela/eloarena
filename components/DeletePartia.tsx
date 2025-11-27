@@ -18,6 +18,7 @@ export default function DeletePartia({ partiaId, turniejId, numerPartii, nazwaTu
   const handleDelete = async () => {
     setDeleting(true)
     try {
+      // Użyj poprawnego endpointu - albo API albo admin route
       const response = await fetch(`/api/admin/partie/${partiaId}?turniejId=${turniejId}`, {
         method: 'DELETE',
       })

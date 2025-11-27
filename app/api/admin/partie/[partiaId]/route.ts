@@ -10,7 +10,7 @@ export async function DELETE(
   const { searchParams } = new URL(request.url)
   const turniejId = searchParams.get('turniejId')
 
-  // ROZWIĄŻ PARAMS JAKO PROMISE
+  // ROZWIĄŻ PARAMS
   const resolvedParams = await params
   const partiaId = resolvedParams.partiaId
 
