@@ -1,3 +1,4 @@
+// elo-arena/app/admin/turniej/[id]/update/route.ts
 import { NextRequest, NextResponse } from 'next/server'
 import { createSupabaseServerMutable } from '@/lib/supabase/server-mutable'
 

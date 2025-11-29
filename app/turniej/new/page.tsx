@@ -1,3 +1,4 @@
+// elo-arena/app/turniej/new/page.tsx
 'use client'
 
 import { redirect } from 'next/navigation'

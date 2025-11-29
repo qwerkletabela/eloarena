@@ -1,3 +1,4 @@
+// elo-arena/app/turniej/page.tsx
 import { createSupabaseServer } from '@/lib/supabase/server'
 import TournamentList from '@/components/TournamentList.client'
 

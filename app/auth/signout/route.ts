@@ -1,3 +1,4 @@
+// elo-arena/app/auth/signout/route.ts
 import { NextResponse } from 'next/server'
 import { createSupabaseServerMutable } from '@/lib/supabase/server-mutable'
 

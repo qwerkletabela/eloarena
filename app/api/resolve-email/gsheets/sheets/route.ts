@@ -1,3 +1,4 @@
+// elo-arena/app/api/resolve-email/gsheets/sheets/route.ts
 import { NextRequest, NextResponse } from 'next/server'
 
 function extractSpreadsheetId(url: string) {

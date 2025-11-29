@@ -1,3 +1,4 @@
+// elo-arena/app/admin/turniej/[id]/partie/[partiaId]/page.tsx
 'use client'
 
 import Link from 'next/link'

@@ -1,3 +1,4 @@
+// elo-arena/app/admin/turniej/[id]/edit/page.tsx
 import { redirect } from 'next/navigation'
 import { createSupabaseServer } from '@/lib/supabase/server'
 import AutoHide from '@/components/AutoHide' // Zaimportuj komponent AutoHide

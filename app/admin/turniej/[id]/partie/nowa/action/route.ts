@@ -1,3 +1,4 @@
+// elo-arena/app/admin/turniej/[id]/partie/nowa/action/route.ts
 import { createSupabaseServer } from '@/lib/supabase/server'
 import { calculateEloChanges, validatePartia } from '@/lib/eloCalculator'
 import { revalidatePath } from 'next/cache'

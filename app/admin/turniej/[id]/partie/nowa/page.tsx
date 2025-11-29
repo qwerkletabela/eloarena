@@ -1,3 +1,4 @@
+// elo-arena/app/admin/turniej/[id]/partie/nowa/page.tsx
 import { createSupabaseServer } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import NowaPartiaForm from '@/components/admin/NowaPartiaForm'

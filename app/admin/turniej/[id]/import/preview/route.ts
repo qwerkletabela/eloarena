@@ -1,3 +1,4 @@
+// elo-arena/app/admin/turniej/[id]/import/preview/route.ts
 import { NextRequest, NextResponse } from 'next/server'
 import { createSupabaseServer } from '@/lib/supabase/server'
 

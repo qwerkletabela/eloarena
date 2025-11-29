@@ -1,3 +1,4 @@
+// elo-arena/app/admin/layout.tsx
 import { redirect } from 'next/navigation'
 import { createSupabaseServer } from '@/lib/supabase/server'
 import AdminSidebar from '@/components/admin/AdminSidebar'

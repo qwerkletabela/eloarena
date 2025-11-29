@@ -1,3 +1,4 @@
+// elo-arena/app/auth/login/route.ts
 import { NextRequest, NextResponse } from 'next/server'
 import { createSupabaseServerMutable } from '@/lib/supabase/server-mutable'
 import { supabaseAdmin } from '@/lib/supabase/admin'

@@ -1,3 +1,4 @@
+// elo-arena/app/admin/turniej/[id]/partie/page.tsx
 import Link from 'next/link'
 import { createSupabaseServer } from '@/lib/supabase/server'
 import { 

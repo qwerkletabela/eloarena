@@ -1,3 +1,4 @@
+// elo-arena/app/api/resolve-email/route.ts
 import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase/admin'
 

@@ -30,6 +30,8 @@ interface PartiaZGraczami {
     nazwa: string
   }
   gracze: Gracz[]
+  // Dodaj dynamiczne pola ELO
+  [key: string]: any
 }
 
 export default function PartieClient({ partie }: { partie: PartiaZGraczami[] }) {
@@ -70,6 +72,19 @@ export default function PartieClient({ partie }: { partie: PartiaZGraczami[] }) 
         <div className="divide-y divide-slate-700">
           {filteredPartie.map((partia) => {
             const zwyciezca = partia.gracze.find(g => g.id === partia.duzy_punkt_gracz_id)
+            
+            // Przygotuj dane graczy dla komponentu DeletePartia
+            const graczeDlaUsuwania = partia.gracze.map((gracz, index) => {
+              // Znajdź indeks gracza w partii (numer od 1 do liczba_graczy)
+              const numerGracza = index + 1
+              return {
+                id: gracz.id,
+                imie: gracz.imie,
+                nazwisko: gracz.nazwisko,
+                eloPrzed: partia[`elo_przed${numerGracza}`] || 1200,
+                zmianaElo: partia[`zmiana_elo${numerGracza}`] || 0
+              }
+            })
             
             return (
               <div key={partia.id} className="p-6 hover:bg-slate-700/30 transition">
@@ -141,6 +156,7 @@ export default function PartieClient({ partie }: { partie: PartiaZGraczami[] }) 
                       turniejId={partia.turniej_id}
                       numerPartii={partia.numer_partii}
                       nazwaTurnieju={partia.turniej.nazwa}
+                      gracze={graczeDlaUsuwania}
                     />
                   </div>
                 </div>

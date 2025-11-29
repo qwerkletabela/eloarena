@@ -1,3 +1,4 @@
+// elo-arena/app/profile/page.tsx
 import { redirect } from 'next/navigation'
 import { createSupabaseServer } from '@/lib/supabase/server'
 

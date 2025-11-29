@@ -1,3 +1,4 @@
+// elo-arena/app/onboarding/page.tsx
 import { createSupabaseServer } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import UsernameForm from './username-form'

@@ -1,3 +1,4 @@
+// elo-arena/app/admin/page.tsx
 import { createSupabaseServer } from '@/lib/supabase/server'
 import { 
   Users, 
