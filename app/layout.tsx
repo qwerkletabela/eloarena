@@ -45,7 +45,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
   return (
     <html lang="pl">
       {/* DODAJ GRADIENT TUTAJ - zmodyfikuj klasę body */}
-      <body className="min-h-dvh antialiased bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900">
+      <body className="min-h-dvh antialiased bg-gradient-to-br from-blue-900 via-blue-800 to-blue-700">
         <Navbar user={user ? { id: user.id, email: user.email } : null} role={role} />
         {children}
         <LoadGoogleMaps />

@@ -16,6 +16,21 @@
     padding: 0;
 }
 
+/* Fix dla autouzupełniania - ciemne tło */
+input:-webkit-autofill,
+input:-webkit-autofill:hover,
+input:-webkit-autofill:focus,
+input:-webkit-autofill:active {
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: #f0f9ff !important; /* text-sky-50 */
+  box-shadow: 0 0 0px 1000px rgba(15, 23, 42, 0.7) inset !important; /* bg-slate-900/70 */
+  transition: background-color 5000s ease-in-out 0s !important;
+  caret-color: #f0f9ff !important;
+}
+
+
+
+
 /*body {
     align-items: left;
     background: linear-gradient(

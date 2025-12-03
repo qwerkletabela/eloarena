@@ -151,7 +151,7 @@ export default function TournamentList({ tournaments }: { tournaments: TurniejRo
 
   return (
     <>
-      <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900">
+      <div className="min-h-screen">
         <main className="flex min-h-[calc(100vh-4rem)] items-center justify-center px-4 py-8">
           <div className="w-full max-w-4xl rounded-2xl bg-slate-800/95 border border-slate-700 shadow-[0_14px_40px_rgba(0,0,0,0.8)] p-6 space-y-6">
             <h1 className="text-2xl font-semibold text-sky-50 text-center">

@@ -73,7 +73,7 @@ export default async function ProfilePage({
 
   return (
     // Dodano ciemne tło gradientowe do całej strony
-    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900">
+    <div className="min-h-screen">
       <main className="flex min-h-[calc(100vh-4rem)] items-center justify-center px-4 py-8">
         {/* KARTA PROFILU */}
         <div className="w-full max-w-xl rounded-2xl bg-slate-800/95 border border-slate-700 shadow-[0_14px_40px_rgba(0,0,0,0.8)] p-6 space-y-5">

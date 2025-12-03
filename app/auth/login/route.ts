@@ -1,41 +1,69 @@
-// elo-arena/app/auth/login/route.ts
 import { NextRequest, NextResponse } from 'next/server'
-import { createSupabaseServerMutable } from '@/lib/supabase/server-mutable'
-import { supabaseAdmin } from '@/lib/supabase/admin'
+import { createSupabaseServer } from '@/lib/supabase/server'
+import { createClient } from '@supabase/supabase-js'
 
 export async function POST(req: NextRequest) {
-  const form = await req.formData()
-  let identifier = String(form.get('identifier') || '').trim().toLowerCase()
-  const password = String(form.get('password') || '')
+  const formData = await req.formData()
+  let identifier = String(formData.get('identifier') || '').trim().toLowerCase()
+  const password = String(formData.get('password') || '')
 
-  // Zawsze bierz origin z requestu (działa na localhost i na Vercel)
   const origin = req.nextUrl.origin
 
-  // 1) username -> email (jeśli trzeba)
+  // 1) Sprawdź czy to email czy username
   if (!identifier.includes('@')) {
-    const { data, error } = await supabaseAdmin
-      .from('profiles')
-      .select('email')
-      .eq('username', identifier)
-      .single()
+    // To jest username - znajdź email
+    try {
+      const supabaseAdmin = createClient(
+        process.env.NEXT_PUBLIC_SUPABASE_URL!,
+        process.env.SUPABASE_SERVICE_ROLE_KEY!
+      )
+      
+      const { data, error } = await supabaseAdmin
+        .from('profiles')
+        .select('email')
+        .eq('username', identifier)
+        .single()
 
-    if (error || !data?.email) {
-      return NextResponse.redirect(new URL('/auth/signin?e=notfound', origin), { status: 303 })
+      if (error || !data?.email) {
+        return NextResponse.redirect(
+          new URL('/auth/signin?e=notfound', origin), 
+          { status: 303 }
+        )
+      }
+      identifier = data.email.toLowerCase()
+    } catch (error) {
+      console.error('Błąd konwersji username:', error)
+      return NextResponse.redirect(
+        new URL('/auth/signin?e=notfound', origin), 
+        { status: 303 }
+      )
     }
-    identifier = data.email.toLowerCase()
   }
 
   // 2) Logowanie
-  const supabase = await createSupabaseServerMutable()
-  const { error } = await supabase.auth.signInWithPassword({
-    email: identifier,
-    password,
-  })
+  try {
+    const supabase = await createSupabaseServer()
+    const { error } = await supabase.auth.signInWithPassword({
+      email: identifier,
+      password,
+    })
 
-  if (error) {
-    return NextResponse.redirect(new URL('/auth/signin?e=invalid', origin), { status: 303 })
+    if (error) {
+      console.error('Błąd logowania:', error)
+      return NextResponse.redirect(
+        new URL('/auth/signin?e=invalid', origin), 
+        { status: 303 }
+      )
+    }
+
+    // 3) Sukces
+    return NextResponse.redirect(new URL('/', origin), { status: 303 })
+
+  } catch (error) {
+    console.error('Błąd serwera:', error)
+    return NextResponse.redirect(
+      new URL('/auth/signin?e=invalid', origin), 
+      { status: 303 }
+    )
   }
-
-  // 3) Sukces
-  return NextResponse.redirect(new URL('/', origin), { status: 303 })
 }
