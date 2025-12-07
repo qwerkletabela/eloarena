@@ -6,18 +6,6 @@ const urlRe = /^https?:\/\/\S+$/i
 const sheetColRe = /^[A-Za-z]$/
 const uuidRe = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 
-function extractSheetId(url: string): string | null {
-  try {
-    const u = new URL(url)
-    const byQuery = u.searchParams.get('id')
-    if (byQuery) return byQuery
-    const m = u.pathname.match(/\/spreadsheets\/d\/([a-zA-Z0-9-_]+)/)
-    return m ? m[1] : null
-  } catch {
-    return null
-  }
-}
-
 export async function POST(req: NextRequest) {
   const origin = req.nextUrl.origin
   const supabase = await createSupabaseServerMutable()
@@ -35,8 +23,7 @@ export async function POST(req: NextRequest) {
   const godzina_turnieju = String(fd.get('godzina_turnieju') || '').trim()
   const zakonczenie_turnieju = String(fd.get('zakonczenie_turnieju') || '').trim() || null
 
-  const gsheet_url_raw = String(fd.get('gsheet_url') || '').trim() || null
-  let gsheet_id = String(fd.get('gsheet_id') || '').trim() || null
+  const gsheet_url = String(fd.get('gsheet_url') || '').trim() || null
   const arkusz_nazwa = String(fd.get('arkusz_nazwa') || '').trim() || null
 
   const kolumna_nazwisk_raw = String(fd.get('kolumna_nazwisk') || '').trim()
@@ -44,7 +31,7 @@ export async function POST(req: NextRequest) {
 
   const pierwszy_wiersz_z_nazwiskiem_raw = fd.get('pierwszy_wiersz_z_nazwiskiem')
   const pierwszy_wiersz_z_nazwiskiem =
-    pierwszy_wiersz_z_nazwiskiem_raw ? Number(pierwszy_wiersz_z_nazwiskiem_raw) : 2
+    pierwszy_wiersz_z_nazwiskiem_raw ? Number(pierwszy_wiersz_z_nazwiskiem_raw) : null
 
   const limit_graczy_raw = fd.get('limit_graczy')
   const limit_graczy = limit_graczy_raw ? Number(limit_graczy_raw) : null
@@ -87,12 +74,8 @@ export async function POST(req: NextRequest) {
     return NextResponse.redirect(new URL('/turniej/new?e=number_invalid', origin), { status: 303 })
   }
 
-  let gsheet_url = gsheet_url_raw
   if (gsheet_url && !urlRe.test(gsheet_url)) {
     return NextResponse.redirect(new URL('/turniej/new?e=url_invalid', origin), { status: 303 })
-  }
-  if (!gsheet_id && gsheet_url) {
-    gsheet_id = extractSheetId(gsheet_url)
   }
 
   // Verify that the location exists and get location details
@@ -113,7 +96,6 @@ export async function POST(req: NextRequest) {
     godzina_turnieju,
     zakonczenie_turnieju,
     gsheet_url,
-    gsheet_id,
     arkusz_nazwa,
     kolumna_nazwisk,
     pierwszy_wiersz_z_nazwiskiem,

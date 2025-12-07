@@ -53,7 +53,6 @@ export async function POST(
     const godzina_turnieju = String(fd.get('godzina_turnieju') || '').trim()
     const zakonczenie_turnieju = String(fd.get('zakonczenie_turnieju') || '').trim() || null
     const gsheet_url = (String(fd.get('gsheet_url') || '').trim()) || null
-    const gsheet_id = (String(fd.get('gsheet_id') || '').trim()) || null
     const arkusz_nazwa = (String(fd.get('arkusz_nazwa') || '').trim()) || null
     const kolumna_nazwisk_raw = String(fd.get('kolumna_nazwisk') || '').trim()
     const kolumna_nazwisk = kolumna_nazwisk_raw ? kolumna_nazwisk_raw.toUpperCase() : null
@@ -79,7 +78,7 @@ export async function POST(
       return NextResponse.redirect(new URL(`/admin/turniej/${id}/edit?e=miejsce_required`, origin), { status: 303 })
     }
 
-    // Sprawdź czy miejsce istnieje w bazie - TYLKO sprawdzamy ID, nie potrzebujemy współrzędnych
+    // Sprawdź czy miejsce istnieje w bazie
     const { data: miejsce, error: miejsceError } = await supabase
       .from('miejsce_turnieju')
       .select('id')
@@ -93,23 +92,22 @@ export async function POST(
 
     console.log('✅ Place exists:', miejsce_id)
 
-    // Przygotowanie danych - NIE ZAPISUJEMY współrzędnych do turniej!
+    // Przygotowanie danych - bez updated_at (ta kolumna nie istnieje)
     const updates: Record<string, any> = {
       nazwa, 
       data_turnieju, 
       godzina_turnieju,
       zakonczenie_turnieju,
       gsheet_url, 
-      gsheet_id, 
       arkusz_nazwa,
       kolumna_nazwisk, 
       pierwszy_wiersz_z_nazwiskiem,
       limit_graczy,
       miejsce_id,
-      // USUNIĘTE: lat i lng - współrzędne będziemy pobierać przez relację z miejsca
+      // USUNIĘTE: updated_at - nie ma tej kolumny w tabeli
     }
 
-    console.log('💾 Final updates (NO COORDINATES):', updates)
+    console.log('💾 Final updates:', updates)
 
     // Aktualizacja
     const { data, error } = await supabase
@@ -123,7 +121,7 @@ export async function POST(
       return NextResponse.redirect(new URL(`/admin/turniej/${id}/edit?e=save_failed`, origin), { status: 303 })
     }
 
-    console.log('✅ Full update successful (without coordinates):', data)
+    console.log('✅ Full update successful:', data)
     return NextResponse.redirect(new URL(`/admin/turniej/${id}/edit?ok=1`, origin), { status: 303 })
 
   } catch (error) {

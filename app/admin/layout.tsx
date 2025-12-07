@@ -26,7 +26,7 @@ export default async function AdminLayout({
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900">
+    <div className="min-h-screen">
       <div className="flex">
         <AdminSidebar user={user} />
         <div className="flex-1">

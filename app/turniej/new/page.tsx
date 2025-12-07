@@ -4,6 +4,7 @@
 import { redirect } from 'next/navigation'
 import { createSupabaseBrowser } from '@/lib/supabase/browser'
 import { useEffect, useState } from 'react'
+import { MapPin, Clock, CalendarDays, Trophy } from 'lucide-react'
 import AutoHide from '@/components/AutoHide'
 import AddTurniej from '@/components/AddTurniej'
 
@@ -23,7 +24,7 @@ interface FormData {
   gsheet_url: string
   arkusz_nazwa: string
   kolumna_nazwisk: string
-  pierwszy_wiersz_z_nazwiskiem: number
+  pierwszy_wiersz_z_nazwiskiem: string
   limit_graczy: string
   miejsce_id: string
 }
@@ -40,7 +41,7 @@ export default function NewTurniejPage() {
     gsheet_url: '',
     arkusz_nazwa: '',
     kolumna_nazwisk: '',
-    pierwszy_wiersz_z_nazwiskiem: 2,
+    pierwszy_wiersz_z_nazwiskiem: '',
     limit_graczy: '',
     miejsce_id: ''
   })
@@ -165,7 +166,7 @@ export default function NewTurniejPage() {
 
   if (isLoading) {
     return (
-      <main className="flex min-h-[calc(100vh-4rem)] items-center justify-center px-4 py-8 bg-slate-900">
+      <main className="flex min-h-[calc(100vh-4rem)] items-center justify-center px-4 py-8">
         <div className="w-full max-w-2xl rounded-2xl bg-slate-800/95 border border-slate-700 shadow-[0_14px_40px_rgba(0,0,0,0.8)] p-6 text-center">
           <div className="text-sky-100">Ładowanie...</div>
         </div>
@@ -175,9 +176,9 @@ export default function NewTurniejPage() {
 
   return (
     <>
-      <main className="flex min-h-[calc(100vh-4rem)] items-center justify-center px-4 py-8 bg-slate-900">
-        <div className="w-full max-w-2xl rounded-2xl bg-slate-800/95 border border-slate-700 shadow-[0_14px_40px_rgba(0,0,0,0.8)] p-6 space-y-6">
-          <h1 className="text-2xl font-semibold text-sky-50">Dodaj turniej</h1>
+      <main className="flex min-h-[calc(100vh-4rem)] items-start justify-center px-8 py-16">
+        <div className="w-full max-w-2xl rounded-2xl bg-slate-800/95 border border-slate-700 shadow-[0_14px_40px_rgba(0,0,0,0.8)] p-6 space-y-6 text-c">
+          <h1 className="text-4xl font-bold text-sky-50 mb-2 text-center">Dodaj turniej</h1>
 
           {error && (
             <AutoHide>
@@ -190,64 +191,76 @@ export default function NewTurniejPage() {
           <form onSubmit={handleSubmit} className="space-y-5">
             {/* Nazwa turnieju */}
             <div>
-              <label className="block text-sm font-medium text-sky-100">Nazwa turnieju *</label>
+              <label className="flex items-center gap-1.5 text-sm font-medium text-sky-100">
+                <Trophy size={18} /><span>Nazwa turnieju:</span>
+                </label>
               <input 
                 name="nazwa" 
                 required 
                 value={formData.nazwa}
                 onChange={handleInputChange}
-                className="mt-1 w-full rounded border border-slate-600 bg-slate-900/80 px-3 py-2 text-sky-100 placeholder:text-slate-500 focus:border-sky-500 focus:ring-1 focus:ring-sky-500" 
-                placeholder="np. ELO Arena Open" 
+                className="mt-1 w-full rounded-2xl border border-slate-600 bg-slate-900/80 px-3 py-2 text-sky-100 placeholder:text-slate-500 focus:border-sky-500 focus:ring-1 focus:ring-sky-500" 
+                placeholder="" 
               />
             </div>
 
             {/* Data i godziny */}
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-              <div>
-                <label className="block text-sm font-medium text-sky-100">Data turnieju *</label>
+              <div className=''>
+                <label className="flex items-center gap-1.5 text-sm font-medium text-sky-100">
+                <CalendarDays size={18} /><span>Data turnieju:</span>
+                </label>
                 <input 
                   type="date" 
                   name="data_turnieju" 
                   required 
                   value={formData.data_turnieju}
                   onChange={handleInputChange}
-                  className="mt-1 w-full rounded border border-slate-600 bg-slate-900/80 px-3 py-2 text-sky-100 focus:border-sky-500 focus:ring-1 focus:ring-sky-500" 
+                  className="mt-1 w-full rounded-2xl border border-slate-600 bg-slate-900/80 px-3 py-2 text-sky-100 focus:border-sky-500 focus:ring-1 focus:ring-sky-500" 
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-sky-100">Godzina startu *</label>
+                <label className="flex items-center gap-1.5 text-sm font-medium text-sky-100">
+                <Clock size={18} /><span>Godzina rozpoczęcia:</span>
+              </label>
                 <input 
                   type="time" 
                   name="godzina_turnieju" 
                   required 
                   value={formData.godzina_turnieju}
                   onChange={handleInputChange}
-                  className="mt-1 w-full rounded border border-slate-600 bg-slate-900/80 px-3 py-2 text-sky-100 focus:border-sky-500 focus:ring-1 focus:ring-sky-500" 
+                  className="mt-1 w-full rounded-2xl border border-slate-600 bg-slate-900/80 px-3 py-2 text-sky-100 focus:border-sky-500 focus:ring-1 focus:ring-sky-500" 
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-sky-100">Godzina zakończenia</label>
+                <label className="flex items-center gap-1.5 text-sm font-medium text-sky-100">
+                <Clock size={18} /><span>Godzina zakończenia: *</span>
+                </label>
+
                 <input 
                   type="time" 
                   name="zakonczenie_turnieju" 
                   value={formData.zakonczenie_turnieju}
                   onChange={handleInputChange}
-                  className="mt-1 w-full rounded border border-slate-600 bg-slate-900/80 px-3 py-2 text-sky-100 focus:border-sky-500 focus:ring-1 focus:ring-sky-500" 
+                  className="mt-1 w-full rounded-2xl border border-slate-600 bg-slate-900/80 px-3 py-2 text-sky-100 focus:border-sky-500 focus:ring-1 focus:ring-sky-500" 
                 />
               </div>
             </div>
 
             {/* Miejsce turnieju */}
             <div>
-              <label className="block text-sm font-medium text-sky-100">Miejsce turnieju *</label>
-              <select 
+              <label className="flex items-center gap-1.5 text-sm font-medium text-sky-100">
+                <MapPin size={18} /><span>Miejsce turnieju *</span>
+              </label>
+
+                <select 
                 name="miejsce_id" 
                 required
                 value={formData.miejsce_id}
                 onChange={handleInputChange}
-                className="mt-1 w-full rounded border border-slate-600 bg-slate-900/80 px-3 py-2 text-sky-100 focus:border-sky-500 focus:ring-1 focus:ring-sky-500"
+                className="mt-1 w-full rounded-2xl border border-slate-600 bg-slate-900/80 px-3 py-2 text-sky-100 focus:border-sky-500 focus:ring-1 focus:ring-sky-500"
               >
-                <option value="">— wybierz miejsce turnieju —</option>
+                <option value="">— wybierz z listy —</option>
                 {miejsca.map((miejsce) => (
                   <option key={miejsce.id} value={miejsce.id}>
                     {miejsce.nazwa} - {miejsce.miasto}
@@ -255,10 +268,8 @@ export default function NewTurniejPage() {
                   </option>
                 ))}
               </select>
-              <div className="mt-2 flex justify-between items-center">
-                <p className="text-xs text-slate-400">
-                  Jeśli nie ma odpowiedniego miejsca, dodaj je najpierw w panelu administracyjnym.
-                </p>
+              <div className="mt-2 flex justify-end items-center">
+                
                 <a 
                   href="/admin/miejsca/new" 
                   className="text-xs text-sky-400 hover:text-sky-300 hover:underline"
@@ -277,10 +288,10 @@ export default function NewTurniejPage() {
                 name="gsheet_url" 
                 value={formData.gsheet_url}
                 onChange={handleInputChange}
-                className="mt-1 w-full rounded border border-slate-600 bg-slate-900/80 px-3 py-2 text-sky-100 placeholder:text-slate-500 focus:border-sky-500 focus:ring-1 focus:ring-sky-500" 
-                placeholder="https://docs.google.com/spreadsheets/d/..." 
+                className="mt-1 w-full rounded-2xl border border-slate-600 bg-slate-900/80 px-3 py-2 text-sky-100 placeholder:text-slate-500 focus:border-sky-500 focus:ring-1 focus:ring-sky-500" 
+                placeholder="https://..." 
               />
-              <p className="mt-1 text-xs text-slate-400">ID arkusza wyciągniemy automatycznie.</p>
+             
             </div>
 
             {/* Szczegóły arkusza */}
@@ -291,18 +302,18 @@ export default function NewTurniejPage() {
                   name="arkusz_nazwa" 
                   value={formData.arkusz_nazwa}
                   onChange={handleInputChange}
-                  className="mt-1 w-full rounded border border-slate-600 bg-slate-900/80 px-3 py-2 text-sky-100 placeholder:text-slate-500 focus:border-sky-500 focus:ring-1 focus:ring-sky-500" 
-                  placeholder="np. Lista" 
+                  className="mt-1 w-full rounded-2xl border border-slate-600 bg-slate-900/80 px-3 py-2 text-sky-100 placeholder:text-slate-500 focus:border-sky-500 focus:ring-1 focus:ring-sky-500" 
+                  placeholder="" 
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-sky-100">Kolumna nazwisk</label>
+                <label className="block text-sm font-medium text-sky-100">Kolumna z nazwiskami</label>
                 <input 
                   name="kolumna_nazwisk" 
                   value={formData.kolumna_nazwisk}
                   onChange={handleInputChange}
-                  className="mt-1 w-full rounded border border-slate-600 bg-slate-900/80 px-3 py-2 text-sky-100 placeholder:text-slate-500 focus:border-sky-500 focus:ring-1 focus:ring-sky-500" 
-                  placeholder="np. B" 
+                  className="mt-1 w-full rounded-2xl border border-slate-600 bg-slate-900/80 px-3 py-2 text-sky-100 placeholder:text-slate-500 focus:border-sky-500 focus:ring-1 focus:ring-sky-500" 
+                  placeholder="" 
                   maxLength={2} 
                 />
                 <p className="mt-1 text-xs text-slate-400">Jedna litera A-Z.</p>
@@ -310,12 +321,12 @@ export default function NewTurniejPage() {
               <div>
                 <label className="block text-sm font-medium text-sky-100">Pierwszy wiersz z nazwiskiem</label>
                 <input 
-                  type="number" 
+                 //type="number" 
                   name="pierwszy_wiersz_z_nazwiskiem" 
                   min={1} 
                   value={formData.pierwszy_wiersz_z_nazwiskiem}
                   onChange={handleInputChange}
-                  className="mt-1 w-full rounded border border-slate-600 bg-slate-900/80 px-3 py-2 text-sky-100 focus:border-sky-500 focus:ring-1 focus:ring-sky-500" 
+                  className="mt-1 w-full rounded-2xl border border-slate-600 bg-slate-900/80 px-3 py-2 text-sky-100 focus:border-sky-500 focus:ring-1 focus:ring-sky-500" 
                 />
               </div>
             </div>
@@ -325,12 +336,12 @@ export default function NewTurniejPage() {
               <div>
                 <label className="block text-sm font-medium text-sky-100">Limit graczy (opcjonalnie)</label>
                 <input 
-                  type="number" 
+                  //type="number" 
                   name="limit_graczy" 
                   min={1} 
                   value={formData.limit_graczy}
                   onChange={handleInputChange}
-                  className="mt-1 w-full rounded border border-slate-600 bg-slate-900/80 px-3 py-2 text-sky-100 focus:border-sky-500 focus:ring-1 focus:ring-sky-500" 
+                  className="mt-1 w-full rounded-2xl border border-slate-600 bg-slate-900/80 px-3 py-2 text-sky-100 focus:border-sky-500 focus:ring-1 focus:ring-sky-500" 
                 />
               </div>
             </div>
@@ -338,7 +349,7 @@ export default function NewTurniejPage() {
             {/* Przyciski akcji */}
             <div className="flex gap-2 pt-4">
               <button 
-                className="rounded-full bg-sky-600 hover:bg-sky-500 px-6 py-2 text-sm font-semibold text-white transition focus:outline-none focus:ring-2 focus:ring-sky-500 focus:ring-offset-2 focus:ring-offset-slate-800 disabled:opacity-50 disabled:cursor-not-allowed" 
+                className="w-full rounded-full bg-gradient-to-r from-sky-500 to-sky-600 px-4 py-3 text-lg font-semibold text-white shadow-[0_10px_25px_rgba(15,23,42,0.9)] transition-all hover:from-sky-400 hover:to-sky-500 hover:shadow-[0_14px_35px_rgba(15,23,42,1)] active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:from-sky-500 disabled:hover:to-sky-600 disabled:hover:shadow-[0_10px_25px_rgba(15,23,42,0.9)]" 
                 type="submit"
                 disabled={isSubmitting}
               >
@@ -346,7 +357,7 @@ export default function NewTurniejPage() {
               </button>
               <a 
                 href="/admin" 
-                className="rounded-full border border-slate-600 bg-slate-700 hover:bg-slate-600 px-6 py-2 text-sm font-semibold text-sky-100 transition"
+                className="w-full rounded-full bg-gradient-to-r from-red-500 to-red-600 px-4 py-3 text-lg font-semibold text-white shadow-[0_10px_25px_rgba(15,23,42,0.9)] transition-all hover:from-red-400 hover:to-red-500 hover:shadow-[0_14px_35px_rgba(15,23,42,1)] active:scale-[0.98] text-center"
               >
                 Anuluj
               </a>
