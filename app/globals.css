@@ -38,7 +38,7 @@ input:-webkit-autofill:active {
   .btn {
     @apply inline-flex items-center justify-center gap-2 px-5 py-2.5 text-sm font-semibold
       rounded-full cursor-pointer select-none
-      transition-transform transition-shadow duration-150
+      transition-all duration-150
       focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2;
   }
 
