@@ -44,6 +44,76 @@ const secondaryBtn =
   'bg-slate-800/80 px-4 py-2 text-sm font-semibold text-sky-100 shadow-sm ' +
   'hover:bg-slate-700 hover:border-sky-400 transition'
 
+// Funkcja pomocnicza do określania stylu na podstawie tekstu badge
+function getBadgeStyle(text: string): React.CSSProperties {
+  const baseStyle: React.CSSProperties = {
+    display: 'inline-flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: '9999px',
+    padding: '0.5rem 1rem',
+    fontSize: '0.75rem',
+    fontWeight: 500,
+    letterSpacing: '0.025em',
+    transition: 'all 200ms',
+    borderWidth: '1px',
+    borderStyle: 'solid',
+    // Cień podobny do reszty strony
+    boxShadow: '0 4px 20px rgba(0, 0, 0, 0.4), 0 2px 8px rgba(0, 0, 0, 0.2)',
+  }
+
+  if (text === 'w trakcie') {
+    return {
+      ...baseStyle,
+      backgroundColor: 'rgba(16, 185, 129, 0.25)',
+      borderColor: 'rgba(52, 211, 153, 0.4)',
+      color: '#ffffff',
+      // Dodajemy kolorowy cień wewnętrzny dla efektu głębi
+      boxShadow: `
+        0 4px 20px rgba(0, 0, 0, 0.4),
+        0 2px 8px rgba(0, 0, 0, 0.2),
+        inset 0 1px 0 rgba(255, 255, 255, 0.1),
+        inset 0 -1px 0 rgba(0, 0, 0, 0.2)
+      `,
+      textShadow: '0 1px 2px rgba(0, 0, 0, 0.3)',
+    }
+  } else if (text === 'zakończony') {
+    return {
+      ...baseStyle,
+      backgroundColor: 'rgba(239, 68, 68, 0.25)',
+      borderColor: 'rgba(248, 113, 113, 0.4)',
+      color: '#ffffff',
+      // Czerwony cień z efektem głębi
+      boxShadow: `
+        0 4px 20px rgba(0, 0, 0, 0.4),
+        0 2px 8px rgba(0, 0, 0, 0.2),
+        inset 0 1px 0 rgba(255, 255, 255, 0.1),
+        inset 0 -1px 0 rgba(0, 0, 0, 0.2)
+      `,
+      textShadow: '0 1px 2px rgba(0, 0, 0, 0.3)',
+    }
+  } else {
+    // Przyszłe turnieje (za X dni, dzisiaj, jutro, pojutrze)
+    return {
+      ...baseStyle,
+      backgroundColor: 'rgba(59, 130, 246, 0.25)',
+      borderColor: 'rgba(96, 165, 250, 0.4)',
+      color: '#ffffff',
+      // Niebieski cień z efektem głębi
+      boxShadow: `
+        0 4px 20px rgba(0, 0, 0, 0.4),
+        0 2px 8px rgba(0, 0, 0, 0.2),
+        inset 0 1px 0 rgba(255, 255, 255, 0.1),
+        inset 0 -1px 0 rgba(0, 0, 0, 0.2)
+      `,
+      textShadow: '0 1px 2px rgba(0, 0, 0, 0.3)',
+    }
+  }
+}
+
+// Styl dla hover efektu (będzie użyty w className)
+const badgeHoverClass = "hover:scale-[1.02] hover:shadow-[0_6px_24px_rgba(0,0,0,0.5)] transition-all duration-200"
+
 function TournamentCard({ r, onCardClick }: { r: TurniejRow, onCardClick: (tournament: TurniejRow) => void }) {
   const start = joinDateTime(r.data_turnieju, r.godzina_turnieju)
   const end = r.zakonczenie_turnieju
@@ -55,20 +125,20 @@ function TournamentCard({ r, onCardClick }: { r: TurniejRow, onCardClick: (tourn
 
   return (
     <div 
-      className="rounded-2xl border border-slate-700 bg-slate-800/95 p-6 shadow-[0_14px_40px_rgba(0,0,0,0.8)] hover:shadow-[0_18px_50px_rgba(0,0,0,0.9)] transition-all cursor-pointer"
+      className="rounded-2xl border border-slate-700 bg-slate-800/95 p-6 shadow-[0_14px_40px_rgba(0,0,0,0.8)] hover:shadow-[0_18px_50px_rgba(0,0,0,0.9)] transition-all duration-300 cursor-pointer group"
       onClick={() => onCardClick(r)}
     >
       <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
         {/* Lewa strona - Informacje o turnieju */}
         <div className="flex-1 min-w-0">
           {/* Nazwa turnieju */}
-          <h3 className="text-xl font-semibold text-sky-50 mb-3">
+          <h3 className="text-xl font-semibold text-sky-50 mb-3 group-hover:text-sky-100 transition-colors">
             {r.nazwa}
           </h3>
           
           {/* Data i godzina */}
           {start && (
-            <div className="flex items-center gap-2 text-sm text-sky-200/80 mb-2">
+            <div className="flex items-center gap-2 text-sm text-sky-200/80 mb-2 group-hover:text-sky-200 transition-colors">
               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
               </svg>
@@ -81,15 +151,15 @@ function TournamentCard({ r, onCardClick }: { r: TurniejRow, onCardClick: (tourn
 
           {/* Miejsce i adres */}
           {miejsce ? (
-            <div className="flex items-start gap-2 text-sm text-sky-200/80">
+            <div className="flex items-start gap-2 text-sm text-sky-200/80 group-hover:text-sky-200 transition-colors">
               <svg className="w-4 h-4 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
               </svg>
               <div>
-                <div className="font-medium text-sky-100">{miejsce.nazwa}, {miejsce.miasto}</div>
+                <div className="font-medium text-sky-100 group-hover:text-sky-50 transition-colors">{miejsce.nazwa}, {miejsce.miasto}</div>
                 {miejsce.adres && (
-                  <div className="text-sky-200/60 text-xs mt-0.5">
+                  <div className="text-sky-200/60 text-xs mt-0.5 group-hover:text-sky-200/70 transition-colors">
                     {miejsce.adres}
                   </div>
                 )}
@@ -109,10 +179,8 @@ function TournamentCard({ r, onCardClick }: { r: TurniejRow, onCardClick: (tourn
 
         {/* Prawa strona - Status */}
         {badge && (
-          <div className="shrink-0">
-            <span
-              className={`inline-flex rounded-full border px-3 py-1 text-xs font-medium ${badge.style}`}
-            >
+          <div className={`shrink-0 ${badgeHoverClass}`}>
+            <span style={getBadgeStyle(badge.text)}>
               {badge.text}
             </span>
           </div>

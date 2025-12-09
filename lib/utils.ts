@@ -48,6 +48,7 @@ export function formatTimeHHMM(raw: string | null) {
 }
 
 export function statusBadge(start: Date | null, end: Date | null) {
+  
   if (!start) return null
 
   const now = new Date()
@@ -67,9 +68,9 @@ export function statusBadge(start: Date | null, end: Date | null) {
   //  - w trakcie: zielony
   //  - zakończony: czerwony
   //
-  const futureStyle = `${base} bg-blue-600 hover:bg-blue-500`
-  const activeStyle = `${base} bg-emerald-600 hover:bg-emerald-500`
-  const finishedStyle = `${base} bg-rose-600 hover:bg-rose-500`
+  const futureStyle = `${base} bg-blue-600/90 hover:bg-blue-500`
+  const activeStyle = `${base} bg-emerald-600/90 hover:bg-emerald-500`
+  const finishedStyle = `${base} bg-rose-600/90 hover:bg-rose-500`
 
   // Ile dni do startu (pełne dni kalendarzowe)
   const getDiffDays = () => {
