@@ -16,14 +16,31 @@ export default async function RootLayout({ children }: { children: React.ReactNo
   const supabase = await createSupabaseServer()
   const { data: { user } } = await supabase.auth.getUser()
 
-  let role: 'admin' | 'user' | null = null
+  let role: 'admin' | 'organizer' | 'user' | null = null
 
   if (user) {
     // 1) najpewniejsze: rpc('is_admin')
     const { data: isAdmin, error: rpcError } = await supabase.rpc('is_admin')
 
     if (!rpcError && typeof isAdmin === 'boolean') {
-      role = isAdmin ? 'admin' : 'user'
+      // Jeśli rpc zwróciło true - admin, jeśli false - musimy sprawdzić czy organizer czy user
+      if (isAdmin) {
+        role = 'admin'
+      } else {
+        // Sprawdzamy bezpośrednio w profiles, czy użytkownik jest organizatorem
+        const { data: profile, error: profError } = await supabase
+          .from('profiles')
+          .select('role')
+          .eq('id', user.id)
+          .maybeSingle()
+
+        if (profError) {
+          console.error('[auth] profiles select error:', profError)
+        }
+        
+        // Ustawiamy rolę: admin już obsłużony, sprawdzamy organizer, domyślnie user
+        role = profile?.role === 'organizer' ? 'organizer' : 'user'
+      }
     } else {
       // 2) fallback: czytaj role bezpośrednio z profiles
       const { data: profile, error: profError } = await supabase
@@ -35,7 +52,15 @@ export default async function RootLayout({ children }: { children: React.ReactNo
       if (profError) {
         console.error('[auth] profiles select error:', profError)
       }
-      role = profile?.role === 'admin' ? 'admin' : 'user'
+      
+      // Uwzględniamy wszystkie trzy role
+      if (profile?.role === 'admin') {
+        role = 'admin'
+      } else if (profile?.role === 'organizer') {
+        role = 'organizer'
+      } else {
+        role = 'user'
+      }
     }
   }
 

@@ -19,6 +19,7 @@ const ROUTES = {
   TOURNAMENTS: '/turniej',
   PROFILE: '/profile',
   ADMIN: '/admin',
+  ORGANIZER: '/organizer/dashboard', // 👈 DODANE dla organizatora
   SIGNUP: '/auth/signup',
   SIGNIN: '/auth/signin',
   SIGNOUT: '/auth/signout',
@@ -29,11 +30,13 @@ const ROUTES = {
 const NavLink = ({ 
   href, 
   children,
-  currentPath 
+  currentPath,
+  className = '' // 👈 Dodajemy opcjonalną klasę
 }: { 
   href: string
   children: React.ReactNode
   currentPath: string
+  className?: string
 }) => {
   const isActive = currentPath === href
   
@@ -44,6 +47,7 @@ const NavLink = ({
         relative px-3 py-2 text-sm font-medium transition
         text-sky-300/80 hover:text-sky-600
         ${isActive ? 'text-sky-300' : ''}
+        ${className}
       `}
       aria-current={isActive ? 'page' : undefined}
     >
@@ -94,9 +98,36 @@ const MobileMenu = ({
         </NavLink>
       )}
       
+      {/* Dla ADMINA */}
       {role === 'admin' && (
-        <NavLink href={ROUTES.ADMIN} currentPath={currentPath}>
-          Admin
+        <NavLink 
+          href={ROUTES.ADMIN} 
+          currentPath={currentPath}
+          className="text-red-300 hover:text-red-100"
+        >
+          <span className="flex items-center gap-2">
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+            </svg>
+            Admin
+          </span>
+        </NavLink>
+      )}
+      
+      {/* Dla ORGANIZATORA */}
+      {role === 'organizer' && (
+        <NavLink 
+          href={ROUTES.ORGANIZER} 
+          currentPath={currentPath}
+          className="text-emerald-300 hover:text-emerald-100"
+        >
+          <span className="flex items-center gap-2">
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+            </svg>
+            Panel
+          </span>
         </NavLink>
       )}
 
@@ -222,9 +253,32 @@ export default function Navbar({ user, role }: { user: UserLite; role: Role }) {
                   </NavLink>
                 )}
                 
+                {/* Dla ADMINA */}
                 {role === 'admin' && (
-                  <NavLink href={ROUTES.ADMIN} currentPath={pathname}>
+                  <NavLink 
+                    href={ROUTES.ADMIN} 
+                    currentPath={pathname}
+                    className="text-red-300 hover:text-red-100 flex items-center gap-2"
+                  >
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                    </svg>
                     Admin
+                  </NavLink>
+                )}
+                
+                {/* Dla ORGANIZATORA */}
+                {role === 'organizer' && (
+                  <NavLink 
+                    href={ROUTES.ORGANIZER} 
+                    currentPath={pathname}
+                    className="text-emerald-300 hover:text-emerald-100 flex items-center gap-2"
+                  >
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+                    </svg>
+                    Panel
                   </NavLink>
                 )}
               </div>
@@ -234,6 +288,19 @@ export default function Navbar({ user, role }: { user: UserLite; role: Role }) {
             <div className="hidden md:flex items-center gap-3">
               {user ? (
                 <>
+                  {/* Badge z rolą */}
+                  <div className={`px-3 py-1 rounded-full text-xs font-semibold border ${
+                    role === 'admin' 
+                      ? 'bg-red-900/20 text-red-300 border-red-700/30' 
+                      : role === 'organizer'
+                      ? 'bg-emerald-900/20 text-emerald-300 border-emerald-700/30'
+                      : 'bg-slate-800/40 text-sky-300 border-slate-700'
+                  }`}>
+                    {role === 'admin' ? 'Admin' : 
+                     role === 'organizer' ? 'Organizator' : 
+                     'Użytkownik'}
+                  </div>
+                  
                   <span
                     className="inline-flex h-9 items-center truncate rounded-full border border-sky-600 bg-slate-800/70 px-4 text-xs font-medium text-sky-200 max-w-[200px]"
                     title={user.email || ''}
