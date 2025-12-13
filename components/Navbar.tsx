@@ -17,7 +17,7 @@ type Role = 'admin' | 'organizer' | 'user' | null
 const ROUTES = {
   HOME: '/',
   TOURNAMENTS: '/turniej',
-  MAP: '/mapa', // 👈 DODANE: ścieżka dla mapy
+  MAP: '/mapa',
   PROFILE: '/profile',
   ADMIN: '/admin',
   ORGANIZER: '/organizer/dashboard',
@@ -68,99 +68,112 @@ const MobileMenu = ({
   isOpen, 
   user, 
   role, 
-  currentPath 
+  currentPath,
+  onClose
 }: { 
   isOpen: boolean
   user: UserLite
   role: Role
   currentPath: string
+  onClose: () => void
 }) => {
   if (!isOpen) return null
   
   return (
-    <div 
-      className="md:hidden border-t border-sky-700 bg-slate-900/95 px-4 py-3 space-y-2"
-      role="menu"
-      aria-label="Menu mobilne"
-    >
-      <NavLink href={ROUTES.TOURNAMENTS} currentPath={currentPath}>
-        Turnieje
-      </NavLink>
+    <>
+      {/* Overlay - kliknięcie zamyka menu */}
+      <div 
+        className="md:hidden fixed inset-0 bg-black/40 z-40"
+        onClick={onClose}
+        aria-hidden="true"
+      />
       
-      {/* 👇 DODANE: Link do mapy w menu mobilnym */}
-      <NavLink href={ROUTES.MAP} currentPath={currentPath}>
-        Mapa
-      </NavLink>
-      
-      {!user && (
-        <NavLink href={ROUTES.SIGNUP} currentPath={currentPath}>
-          Rejestracja
+      {/* Menu mobilne - wyższy z-index niż overlay */}
+      <div 
+        className="md:hidden border-t border-sky-700 bg-slate-900 px-4 py-3 space-y-2 relative z-50"
+        role="menu"
+        aria-label="Menu mobilne"
+      >
+        <NavLink href={ROUTES.TOURNAMENTS} currentPath={currentPath}>
+          Turnieje
         </NavLink>
-      )}
-      
-      {user && (
-        <NavLink href={ROUTES.PROFILE} currentPath={currentPath}>
-          Profil
+        
+        <NavLink href={ROUTES.MAP} currentPath={currentPath}>
+          Mapa
         </NavLink>
-      )}
-      
-      {/* Dla ADMINA */}
-      {role === 'admin' && (
-        <NavLink 
-          href={ROUTES.ADMIN} 
-          currentPath={currentPath}
-          className="text-red-300 hover:text-red-100"
-        >
-          <span className="flex items-center gap-2">
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-            </svg>
-            Admin
-          </span>
-        </NavLink>
-      )}
-      
-      {/* Dla ORGANIZATORA */}
-      {role === 'organizer' && (
-        <NavLink 
-          href={ROUTES.ORGANIZER} 
-          currentPath={currentPath}
-          className="text-emerald-300 hover:text-emerald-100"
-        >
-          <span className="flex items-center gap-2">
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
-            </svg>
-            Panel
-          </span>
-        </NavLink>
-      )}
-
-      <div className="border-t border-sky-700 my-3" aria-hidden="true" />
-
-      {user ? (
-        <form action={ROUTES.SIGNOUT} method="post" className="w-full">
-          <button 
-            type="submit"
-            className="w-full inline-flex items-center justify-center h-9 rounded-full bg-gradient-to-r from-sky-500 to-sky-600 px-5 text-sm font-semibold text-white shadow-[0_5px_18px_rgba(15,23,42,0.8)] transition-all duration-200 hover:from-sky-400 hover:to-sky-500 hover:shadow-[0_7px_22px_rgba(15,23,42,1)] focus:outline-none focus:ring-2 focus:ring-sky-400 focus:ring-offset-2 focus:ring-offset-slate-900 disabled:opacity-50 disabled:cursor-not-allowed"
-            role="menuitem"
+        
+        {!user && (
+          <NavLink href={ROUTES.SIGNUP} currentPath={currentPath}>
+            Rejestracja
+          </NavLink>
+        )}
+        
+        {user && (
+          <NavLink href={ROUTES.PROFILE} currentPath={currentPath}>
+            Profil
+          </NavLink>
+        )}
+        
+        {/* Dla ADMINA */}
+        {role === 'admin' && (
+          <NavLink 
+            href={ROUTES.ADMIN} 
+            currentPath={currentPath}
+            className="text-red-300 hover:text-red-100"
           >
-            Wyloguj
-          </button>
-        </form>
-      ) : (
-        <div className="w-full">
-          <Link 
-            href={ROUTES.SIGNIN} 
-            className="w-full inline-flex items-center justify-center h-9 rounded-full bg-gradient-to-r from-sky-500 to-sky-600 px-5 text-sm font-semibold text-white shadow-[0_5px_18px_rgba(15,23,42,0.8)] transition-all duration-200 hover:from-sky-400 hover:to-sky-500 hover:shadow-[0_7px_22px_rgba(15,23,42,1)] focus:outline-none focus:ring-2 focus:ring-sky-400 focus:ring-offset-2 focus:ring-offset-slate-900 disabled:opacity-50 disabled:cursor-not-allowed"
-            role="menuitem"
+            <span className="flex items-center gap-2">
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+              </svg>
+              Admin
+            </span>
+          </NavLink>
+        )}
+        
+        {/* Dla ORGANIZATORA */}
+        {role === 'organizer' && (
+          <NavLink 
+            href={ROUTES.ORGANIZER} 
+            currentPath={currentPath}
+            className="text-emerald-300 hover:text-emerald-100"
           >
-            Zaloguj
-          </Link>
-        </div>
-      )}
-    </div>
+            <span className="flex items-center gap-2">
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+              </svg>
+              Panel
+            </span>
+          </NavLink>
+        )}
+
+        <div className="border-t border-sky-700 my-3" aria-hidden="true" />
+
+        {user ? (
+          <form action={ROUTES.SIGNOUT} method="post" className="w-full">
+            <button 
+              type="submit"
+              className="w-full inline-flex items-center justify-center h-9 rounded-full bg-gradient-to-r from-sky-500 to-sky-600 px-5 text-sm font-semibold text-white shadow-[0_5px_18px_rgba(15,23,42,0.8)] transition-all duration-200 hover:from-sky-400 hover:to-sky-500 hover:shadow-[0_7px_22px_rgba(15,23,42,1)] focus:outline-none focus:ring-2 focus:ring-sky-400 focus:ring-offset-2 focus:ring-offset-slate-900 disabled:opacity-50 disabled:cursor-not-allowed"
+              role="menuitem"
+              onClick={onClose}
+            >
+              Wyloguj
+            </button>
+          </form>
+        ) : (
+          <div className="w-full">
+            <Link 
+              href={ROUTES.SIGNIN} 
+              className="w-full inline-flex items-center justify-center h-9 rounded-full bg-gradient-to-r from-sky-500 to-sky-600 px-5 text-sm font-semibold text-white shadow-[0_5px_18px_rgba(15,23,42,0.8)] transition-all duration-200 hover:from-sky-400 hover:to-sky-500 hover:shadow-[0_7px_22px_rgba(15,23,42,1)] focus:outline-none focus:ring-2 focus:ring-sky-400 focus:ring-offset-2 focus:ring-offset-slate-900 disabled:opacity-50 disabled:cursor-not-allowed"
+              role="menuitem"
+              onClick={onClose}
+            >
+              Zaloguj
+            </Link>
+          </div>
+        )}
+      </div>
+    </>
   )
 }
 
@@ -202,12 +215,6 @@ export default function Navbar({ user, role }: { user: UserLite; role: Role }) {
     disabled:opacity-50 disabled:cursor-not-allowed
   `
 
-  const BUTTON_SECONDARY = `
-    h-9 rounded-full bg-slate-900/70 border border-sky-600 
-    px-5 text-sm font-semibold text-sky-100 shadow-sm 
-    transition-colors duration-200 hover:bg-slate-800 hover:border-sky-400
-  `
-
   // Helper dla klas Tailwind
   const authButton = BUTTON_PRIMARY
 
@@ -220,7 +227,7 @@ export default function Navbar({ user, role }: { user: UserLite; role: Role }) {
       />
 
       <nav
-        className="w-full bg-slate-900/95 backdrop-blur-md border-b border-slate-700 shadow-[0_8px_25px_rgba(0,0,0,0.7)]"
+        className="w-full bg-slate-900 border-b border-slate-700 shadow-[0_8px_25px_rgba(0,0,0,0.7)]"
         aria-label="Główne menu"
       >
         <div className="mx-auto max-w-7xl px-6 py-3">
@@ -247,7 +254,6 @@ export default function Navbar({ user, role }: { user: UserLite; role: Role }) {
                   Turnieje
                 </NavLink>
                 
-                {/* 👇 DODANE: Link do mapy w desktop navigation */}
                 <NavLink href={ROUTES.MAP} currentPath={pathname}>
                   Mapa
                 </NavLink>
@@ -400,25 +406,17 @@ export default function Navbar({ user, role }: { user: UserLite; role: Role }) {
               </svg>
             </button>
           </div>
-
-          {/* Mobile menu */}
-          <MobileMenu 
-            isOpen={isMenuOpen}
-            user={user}
-            role={role}
-            currentPath={pathname}
-          />
         </div>
       </nav>
       
-      {/* Overlay dla menu mobilnego */}
-      {isMenuOpen && (
-        <div 
-          className="md:hidden fixed inset-0 bg-black/20 backdrop-blur-sm z-40"
-          onClick={() => setIsMenuOpen(false)}
-          aria-hidden="true"
-        />
-      )}
+      {/* Menu mobilne z overlay - poza głównym nav */}
+      <MobileMenu 
+        isOpen={isMenuOpen}
+        user={user}
+        role={role}
+        currentPath={pathname}
+        onClose={() => setIsMenuOpen(false)}
+      />
     </header>
   )
 }
