@@ -17,9 +17,10 @@ type Role = 'admin' | 'organizer' | 'user' | null
 const ROUTES = {
   HOME: '/',
   TOURNAMENTS: '/turniej',
+  MAP: '/mapa', // 👈 DODANE: ścieżka dla mapy
   PROFILE: '/profile',
   ADMIN: '/admin',
-  ORGANIZER: '/organizer/dashboard', // 👈 DODANE dla organizatora
+  ORGANIZER: '/organizer/dashboard',
   SIGNUP: '/auth/signup',
   SIGNIN: '/auth/signin',
   SIGNOUT: '/auth/signout',
@@ -31,7 +32,7 @@ const NavLink = ({
   href, 
   children,
   currentPath,
-  className = '' // 👈 Dodajemy opcjonalną klasę
+  className = ''
 }: { 
   href: string
   children: React.ReactNode
@@ -86,6 +87,11 @@ const MobileMenu = ({
         Turnieje
       </NavLink>
       
+      {/* 👇 DODANE: Link do mapy w menu mobilnym */}
+      <NavLink href={ROUTES.MAP} currentPath={currentPath}>
+        Mapa
+      </NavLink>
+      
       {!user && (
         <NavLink href={ROUTES.SIGNUP} currentPath={currentPath}>
           Rejestracja
@@ -137,7 +143,7 @@ const MobileMenu = ({
         <form action={ROUTES.SIGNOUT} method="post" className="w-full">
           <button 
             type="submit"
-            className="auth-button w-full"
+            className="w-full inline-flex items-center justify-center h-9 rounded-full bg-gradient-to-r from-sky-500 to-sky-600 px-5 text-sm font-semibold text-white shadow-[0_5px_18px_rgba(15,23,42,0.8)] transition-all duration-200 hover:from-sky-400 hover:to-sky-500 hover:shadow-[0_7px_22px_rgba(15,23,42,1)] focus:outline-none focus:ring-2 focus:ring-sky-400 focus:ring-offset-2 focus:ring-offset-slate-900 disabled:opacity-50 disabled:cursor-not-allowed"
             role="menuitem"
           >
             Wyloguj
@@ -147,7 +153,7 @@ const MobileMenu = ({
         <div className="w-full">
           <Link 
             href={ROUTES.SIGNIN} 
-            className="auth-button w-full"
+            className="w-full inline-flex items-center justify-center h-9 rounded-full bg-gradient-to-r from-sky-500 to-sky-600 px-5 text-sm font-semibold text-white shadow-[0_5px_18px_rgba(15,23,42,0.8)] transition-all duration-200 hover:from-sky-400 hover:to-sky-500 hover:shadow-[0_7px_22px_rgba(15,23,42,1)] focus:outline-none focus:ring-2 focus:ring-sky-400 focus:ring-offset-2 focus:ring-offset-slate-900 disabled:opacity-50 disabled:cursor-not-allowed"
             role="menuitem"
           >
             Zaloguj
@@ -239,6 +245,11 @@ export default function Navbar({ user, role }: { user: UserLite; role: Role }) {
               <div className="hidden md:flex items-center gap-3">
                 <NavLink href={ROUTES.TOURNAMENTS} currentPath={pathname}>
                   Turnieje
+                </NavLink>
+                
+                {/* 👇 DODANE: Link do mapy w desktop navigation */}
+                <NavLink href={ROUTES.MAP} currentPath={pathname}>
+                  Mapa
                 </NavLink>
                 
                 {!user && (
@@ -408,43 +419,6 @@ export default function Navbar({ user, role }: { user: UserLite; role: Role }) {
           aria-hidden="true"
         />
       )}
-      
-      {/* Style dla auth button (aby uniknąć duplikacji w klasach) */}
-      <style jsx global>{`
-        .auth-button {
-          display: inline-flex;
-          align-items: center;
-          justify-content: center;
-          height: 2.25rem;
-          border-radius: 9999px;
-          background-image: linear-gradient(to right, #0ea5e9, #0284c7);
-          padding-left: 1.25rem;
-          padding-right: 1.25rem;
-          font-size: 0.875rem;
-          font-weight: 600;
-          color: white;
-          box-shadow: 0 5px 18px rgba(15, 23, 42, 0.8);
-          transition: all 0.2s;
-        }
-        
-        .auth-button:hover {
-          background-image: linear-gradient(to right, #38bdf8, #0ea5e9);
-          box-shadow: 0 7px 22px rgba(15, 23, 42, 1);
-        }
-        
-        .auth-button:focus {
-          outline: none;
-          ring: 2px;
-          ring-color: #38bdf8;
-          ring-offset: 2px;
-          ring-offset-color: #0f172a;
-        }
-        
-        .auth-button:disabled {
-          opacity: 0.5;
-          cursor: not-allowed;
-        }
-      `}</style>
     </header>
   )
 }
