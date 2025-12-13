@@ -2,6 +2,7 @@
 import Link from 'next/link'
 import { redirect } from 'next/navigation'
 import { createSupabaseServer } from '@/lib/supabase/server'
+import DeleteMiejsceButton from '@/components/DeleteMiejsceButton'
 
 export const dynamic = 'force-dynamic'
 export const revalidate = 0
@@ -15,6 +16,7 @@ type Row = {
   latitude: number
   longitude: number
   created_at: string | null
+  liczba_turniejow?: number
 }
 
 export default async function AdminMiejscaList() {
@@ -53,6 +55,25 @@ export default async function AdminMiejscaList() {
       </main>
     )
   }
+
+  // Pobierz liczbę turniejów dla każdego miejsca
+  const miejscaZTurniejami = await Promise.all(
+    (rows || []).map(async (miejsce) => {
+      const { count, error: countError } = await supabase
+        .from('turniej')
+        .select('id', { count: 'exact', head: true })
+        .eq('miejsce_id', miejsce.id)
+
+      if (countError) {
+        console.error(`Błąd pobierania turniejów dla miejsca ${miejsce.id}:`, countError)
+      }
+
+      return {
+        ...miejsce,
+        liczba_turniejow: count || 0
+      }
+    })
+  )
 
   return (
     <main className="flex min-h-[calc(100vh-4rem)] items-center justify-center px-4 py-8">
@@ -105,16 +126,19 @@ export default async function AdminMiejscaList() {
                   Współrzędne
                 </th>
                 <th className="px-4 py-3 text-left text-sky-100 font-medium text-xs uppercase tracking-wider">
+                  Turnieje
+                </th>
+                <th className="px-4 py-3 text-left text-sky-100 font-medium text-xs uppercase tracking-wider">
                   Utworzono
                 </th>
-                <th className="px-4 py-3 text-right text-sky-100 font-medium text-xs uppercase tracking-wider">
+                <th className="px-4 py-3 text-left text-sky-100 font-medium text-xs uppercase tracking-wider">
                   Akcje
                 </th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-600">
-              {rows?.map((raw) => {
-                const r = raw as Row
+              {miejscaZTurniejami?.map((miejsce) => {
+                const r = miejsce as Row
                 return (
                   <tr
                     key={r.id}
@@ -140,40 +164,53 @@ export default async function AdminMiejscaList() {
                     <td className="px-4 py-3 text-slate-200 text-xs">
                       {r.latitude?.toFixed(4)}, {r.longitude?.toFixed(4)}
                     </td>
+                    <td className="px-4 py-3">
+                      <div className="flex items-center justify-center">
+                        <span className={`inline-flex items-center justify-center w-8 h-8 rounded-full text-sm font-bold ${
+                          r.liczba_turniejow && r.liczba_turniejow > 0 
+                            ? 'bg-green-500/20 text-green-300' 
+                            : 'bg-slate-700/50 text-slate-300'
+                        }`}>
+                          {r.liczba_turniejow || 0}
+                        </span>
+                      </div>
+                    </td>
                     <td className="px-4 py-3 text-slate-200 text-xs">
                       {r.created_at
                         ? new Date(r.created_at).toLocaleDateString('pl-PL')
                         : '—'}
                     </td>
-                    <td className="px-4 py-3 text-right">
-                      <Link
-                        href={`/admin/miejsca/${r.id}/edit`}
-                        className="inline-flex items-center gap-1 rounded bg-sky-600 hover:bg-sky-500 px-3 py-1 text-xs font-medium text-white transition"
-                      >
-                        <svg
-                          width="12"
-                          height="12"
-                          viewBox="0 0 24 24"
-                          fill="none"
-                          stroke="currentColor"
-                          strokeWidth="2"
+                    <td className="px-4 py-3">
+                      <div className="flex items-center gap-2">
+                        <Link
+                          href={`/admin/miejsca/${r.id}/edit`}
+                          className="inline-flex items-center gap-1 rounded bg-sky-600 hover:bg-sky-500 px-3 py-1 text-xs font-medium text-white transition"
                         >
-                          <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
-                          <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
-                        </svg>
-                        Edytuj
-                      </Link>
-                      {/* Tutaj w przyszłości możesz dodać DeleteMiejsce tak jak DeleteTurniej */}
+                          <svg
+                            width="12"
+                            height="12"
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            stroke="currentColor"
+                            strokeWidth="2"
+                          >
+                            <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
+                            <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
+                          </svg>
+                          Edytuj
+                        </Link>
+                        <DeleteMiejsceButton id={r.id} nazwa={r.nazwa} />
+                      </div>
                     </td>
                   </tr>
                 )
               })}
 
-              {!rows?.length && (
+              {!miejscaZTurniejami?.length && (
                 <tr>
                   <td
                     className="px-4 py-8 text-center text-slate-400 text-sm"
-                    colSpan={7}
+                    colSpan={8}
                   >
                     <div className="flex flex-col items-center gap-2">
                       <svg
@@ -206,12 +243,12 @@ export default async function AdminMiejscaList() {
           </table>
         </div>
 
-        {rows && rows.length > 0 && (
+        {miejscaZTurniejami && miejscaZTurniejami.length > 0 && (
           <div className="text-sm text-slate-400 text-center">
-            Znaleziono {rows.length} miejsc
-            {rows.length === 1
+            Znaleziono {miejscaZTurniejami.length} miejsc
+            {miejscaZTurniejami.length === 1
               ? 'e'
-              : rows.length > 1 && rows.length < 5
+              : miejscaZTurniejami.length > 1 && miejscaZTurniejami.length < 5
               ? 'a'
               : ''}
           </div>

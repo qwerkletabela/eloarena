@@ -55,7 +55,7 @@ export default function OrganizerSidebar({ user, role }: OrganizerSidebarProps) 
     },
     {
       title: 'Dodaj miejsce',
-      href: '/miejsce/nowe',
+      href: '/miejsce/new',
       icon: <PlusCircle className="h-5 w-5" />,
       description: 'Dodaj nowe miejsce'
     },
