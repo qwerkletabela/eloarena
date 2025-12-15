@@ -291,8 +291,8 @@ export default function MapaPage() {
         geoJsonLayerRef.current = L.geoJSON(geoJsonData, {
           style: {
             fillColor: 'transparent',
-            color: '#38bdf8',
-            weight: 2,
+            color: '#00ff0b',
+            weight: 5,
             opacity: 0.8,
             fillOpacity: 0.1
           }
