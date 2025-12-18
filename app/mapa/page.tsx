@@ -291,9 +291,9 @@ export default function MapaPage() {
         geoJsonLayerRef.current = L.geoJSON(geoJsonData, {
           style: {
             fillColor: 'transparent',
-            color: '#00ff0b',
+            color: '#0000ff',
             weight: 5,
-            opacity: 0.8,
+            opacity: 0.7,
             fillOpacity: 0.1
           }
         }).addTo(map)
@@ -303,7 +303,7 @@ export default function MapaPage() {
         L.polygon(SIMPLE_POLAND_BORDER, {
           fillColor: 'transparent',
           color: '#38bdf8',
-          weight: 2,
+          weight: 5,
           opacity: 0.8,
           fillOpacity: 0.1
         }).addTo(map)
