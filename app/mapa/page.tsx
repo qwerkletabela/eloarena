@@ -2,8 +2,6 @@
 'use client'
 
 import { useEffect, useState, useRef, useCallback } from 'react'
-import L from 'leaflet'
-import 'leaflet/dist/leaflet.css'
 import { GeoJsonObject } from 'geojson'
 import { supabase } from '@/lib/supabase/client'
 import { 
@@ -14,14 +12,6 @@ import {
   Navigation,
   RefreshCw
 } from 'lucide-react'
-
-// Fix dla ikon Leaflet w Next.js
-delete (L.Icon.Default.prototype as any)._getIconUrl
-L.Icon.Default.mergeOptions({
-  iconRetinaUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon-2x.png',
-  iconUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon.png',
-  shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-shadow.png',
-})
 
 // Typy
 type Miejsce = {
@@ -50,28 +40,18 @@ const SIMPLE_POLAND_BORDER: [number, number][] = [
   [54.835, 14.25]
 ]
 
-// Prosta pinezka Leaflet (bez numerków)
-const createSimpleIcon = () => {
-  return new L.Icon.Default({
-    iconSize: [30, 46],      // Rozmiar pinezki
-    iconAnchor: [15, 46],    // Punkt zakotwiczenia (dół pinezki)
-    popupAnchor: [0, -46]    // Gdzie pojawi się popup
-  })
-}
-
 export default function MapaPage() {
   const [loading, setLoading] = useState(true)
   const [loadingMiejsca, setLoadingMiejsca] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [miejsca, setMiejsca] = useState<Miejsce[]>([])
-  const [selectedMiejsce, setSelectedMiejsce] = useState<Miejsce | null>(null)
   const [selectedWojewodztwo, setSelectedWojewodztwo] = useState<string | null>(null)
-  const [zoomLevel, setZoomLevel] = useState(6)
   
   const mapContainerRef = useRef<HTMLDivElement>(null)
-  const mapRef = useRef<L.Map | null>(null)
-  const geoJsonLayerRef = useRef<L.GeoJSON | null>(null)
-  const markersRef = useRef<L.Marker[]>([])
+  const mapRef = useRef<any>(null)
+  const geoJsonLayerRef = useRef<any>(null)
+  const markersRef = useRef<any[]>([])
+  const leafletRef = useRef<any>(null)
 
   const defaultCenter: [number, number] = [52.0, 19.0]
   const defaultZoom = 6
@@ -81,7 +61,6 @@ export default function MapaPage() {
     try {
       setLoadingMiejsca(true)
       
-      // Pobierz miejsca z liczbą turniejów
       const { data, error } = await supabase
         .from('miejsce_turnieju')
         .select(`
@@ -94,18 +73,12 @@ export default function MapaPage() {
 
       if (error) throw error
 
-      // Oblicz liczbę turniejów dla każdego miejsca
       const miejscaZTurniejami = (data || []).map(miejsce => ({
         ...miejsce,
         liczba_turniejow: Array.isArray(miejsce.turniej) ? miejsce.turniej.length : 0
       }))
 
       setMiejsca(miejscaZTurniejami)
-      
-      // Dodaj markery do mapy jeśli mapa jest już gotowa
-      if (mapRef.current) {
-        addMarkersToMap(miejscaZTurniejami, mapRef.current)
-      }
       
     } catch (err: any) {
       console.error('❌ Błąd pobierania miejsc:', err)
@@ -115,55 +88,10 @@ export default function MapaPage() {
     }
   }, [])
 
-  // Inicjalizacja mapy
-  useEffect(() => {
-    if (!mapContainerRef.current || mapRef.current) {
-      return
-    }
-
-    try {
-      // Utwórz mapę
-      const map = L.map(mapContainerRef.current).setView(defaultCenter, defaultZoom)
-      mapRef.current = map
-
-      // Dodaj warstwę OpenStreetMap
-      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-        attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
-        maxZoom: 19,
-      }).addTo(map)
-
-      // Śledź poziom zoomu
-      map.on('zoomend', () => {
-        setZoomLevel(map.getZoom())
-      })
-
-      setLoading(false)
-      
-      // Załaduj granice Polski
-      loadPolandBorders(map)
-      
-      // Pobierz miejsca turniejów
-      fetchMiejsca()
-      
-    } catch (err: any) {
-      console.error('❌ Błąd inicjalizacji mapy:', err)
-      setError(`Błąd tworzenia mapy: ${err.message || 'Nieznany błąd'}`)
-      setLoading(false)
-    }
-
-    // Cleanup
-    return () => {
-      if (mapRef.current) {
-        mapRef.current.remove()
-        mapRef.current = null
-        geoJsonLayerRef.current = null
-        markersRef.current = []
-      }
-    }
-  }, [fetchMiejsca])
-
   // Dodaj markery miejsc do mapy
-  const addMarkersToMap = (miejsca: Miejsce[], map: L.Map) => {
+  const addMarkersToMap = useCallback((miejsca: Miejsce[], map: any, L: any) => {
+    if (!map || !L) return
+
     // Wyczyść stare markery
     markersRef.current.forEach(marker => {
       marker.remove()
@@ -175,10 +103,16 @@ export default function MapaPage() {
     miejsca.forEach((miejsce) => {
       if (!miejsce.latitude || !miejsce.longitude) return
 
-      // Używamy prostej pinezki bez numerków
       const marker = L.marker([miejsce.latitude, miejsce.longitude], {
-        icon: createSimpleIcon(),
-        title: `${miejsce.nazwa}` // Tylko nazwa, bez liczby turniejów
+        icon: L.icon({
+          iconUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon.png',
+          iconRetinaUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon-2x.png',
+          shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-shadow.png',
+          iconSize: [30, 46],
+          iconAnchor: [15, 46],
+          popupAnchor: [0, -46]
+        }),
+        title: `${miejsce.nazwa}`
       })
 
       // Treść popupu
@@ -226,20 +160,15 @@ export default function MapaPage() {
       `
 
       marker.bindPopup(popupContent)
-      
-      // Obsługa kliknięcia
-      marker.on('click', () => {
-        setSelectedMiejsce(miejsce)
-        // Nie zmieniamy ikony - używamy zawsze tej samej
-      })
-
       marker.addTo(map)
       markersRef.current.push(marker)
     })
-  }
+  }, [])
 
   // Załaduj granice Polski
-  const loadPolandBorders = (map: L.Map) => {
+  const loadPolandBorders = useCallback((map: any, L: any) => {
+    if (!map || !L) return
+
     fetch('/data/poland/poland.geojson')
       .then(response => {
         if (!response.ok) {
@@ -250,12 +179,10 @@ export default function MapaPage() {
       .then(data => {
         const geoJsonData = data as GeoJsonObject
         
-        // Usuń poprzednią warstwę jeśli istnieje
         if (geoJsonLayerRef.current) {
           map.removeLayer(geoJsonLayerRef.current)
         }
         
-        // Dodaj nową warstwę GeoJSON
         geoJsonLayerRef.current = L.geoJSON(geoJsonData, {
           style: {
             fillColor: 'transparent',
@@ -267,7 +194,6 @@ export default function MapaPage() {
         }).addTo(map)
       })
       .catch(() => {
-        // Użyj prostych granic jako fallback
         L.polygon(SIMPLE_POLAND_BORDER, {
           fillColor: 'transparent',
           color: '#38bdf8',
@@ -276,7 +202,72 @@ export default function MapaPage() {
           fillOpacity: 0.1
         }).addTo(map)
       })
-  }
+  }, [])
+
+  // Inicjalizacja mapy - tylko po stronie klienta
+  useEffect(() => {
+    if (typeof window === 'undefined' || !mapContainerRef.current || mapRef.current) {
+      return
+    }
+
+    const initMap = async () => {
+      try {
+        setLoading(true)
+        
+        // Dynamiczny import Leaflet tylko po stronie klienta
+        const L = await import('leaflet')
+        
+        // Zaimportuj CSS Leaflet (bez await)
+        import('leaflet/dist/leaflet.css')
+          .catch((err) => console.warn('Błąd ładowania CSS Leaflet:', err))
+        
+        leafletRef.current = L
+
+        // Utwórz mapę
+        const map = L.map(mapContainerRef.current!).setView(defaultCenter, defaultZoom)
+        mapRef.current = map
+
+        // Dodaj warstwę OpenStreetMap
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+          attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+          maxZoom: 19,
+        }).addTo(map)
+
+        // Załaduj granice Polski
+        loadPolandBorders(map, L)
+        
+        // Pobierz miejsca turniejów
+        await fetchMiejsca()
+        
+        setLoading(false)
+        
+      } catch (err: any) {
+        console.error('❌ Błąd inicjalizacji mapy:', err)
+        setError(`Błąd tworzenia mapy: ${err.message || 'Nieznany błąd'}`)
+        setLoading(false)
+      }
+    }
+
+    initMap()
+
+    // Cleanup
+    return () => {
+      if (mapRef.current) {
+        mapRef.current.remove()
+        mapRef.current = null
+        geoJsonLayerRef.current = null
+        markersRef.current = []
+        leafletRef.current = null
+      }
+    }
+  }, [fetchMiejsca, loadPolandBorders])
+
+  // Dodaj markery gdy zostaną załadowane miejsca i mapa jest gotowa
+  useEffect(() => {
+    if (mapRef.current && leafletRef.current && miejsca.length > 0) {
+      addMarkersToMap(miejsca, mapRef.current, leafletRef.current)
+    }
+  }, [miejsca, addMarkersToMap])
 
   // Filtruj miejsca po województwie
   const wojewodztwa = Array.from(new Set(miejsca.map(m => m.wojewodztwo).filter(Boolean)))
@@ -288,7 +279,6 @@ export default function MapaPage() {
   const resetMapView = () => {
     if (mapRef.current) {
       mapRef.current.setView(defaultCenter, defaultZoom)
-      setSelectedMiejsce(null)
       setSelectedWojewodztwo(null)
       
       markersRef.current.forEach(marker => {
@@ -299,13 +289,13 @@ export default function MapaPage() {
 
   const showAllPlaces = () => {
     if (mapRef.current && miejsca.length > 0) {
-      const bounds = L.latLngBounds(
+      const bounds = leafletRef.current?.latLngBounds(
         miejsca
           .filter(m => m.latitude && m.longitude)
           .map(m => [m.latitude!, m.longitude!] as [number, number])
       )
       
-      if (bounds.isValid()) {
+      if (bounds && bounds.isValid()) {
         mapRef.current.fitBounds(bounds, { padding: [50, 50] })
       }
     }
@@ -326,8 +316,29 @@ export default function MapaPage() {
   const handleWojewodztwoSelect = (wojewodztwo: string | null) => {
     setSelectedWojewodztwo(wojewodztwo)
     
-    if (wojewodztwo && mapRef.current) {
+    if (!mapRef.current || !leafletRef.current) return
+    
+    const L = leafletRef.current
+    
+    if (wojewodztwo) {
       const miejscaWoj = miejsca.filter(m => m.wojewodztwo === wojewodztwo)
+      
+      // Zaktualizuj widoczność markerów
+      markersRef.current.forEach(marker => {
+        const latLng = marker.getLatLng()
+        const isVisible = miejscaWoj.some(m => 
+          m.latitude === latLng.lat && m.longitude === latLng.lng
+        )
+        
+        if (isVisible) {
+          marker.setOpacity(1)
+          marker.setZIndexOffset(1000)
+        } else {
+          marker.setOpacity(0.3)
+          marker.setZIndexOffset(0)
+        }
+      })
+      
       if (miejscaWoj.length > 0) {
         const bounds = L.latLngBounds(
           miejscaWoj
@@ -339,6 +350,12 @@ export default function MapaPage() {
           mapRef.current.fitBounds(bounds, { padding: [50, 50] })
         }
       }
+    } else {
+      // Pokaż wszystkie markery
+      markersRef.current.forEach(marker => {
+        marker.setOpacity(1)
+        marker.setZIndexOffset(0)
+      })
     }
   }
 
@@ -346,10 +363,8 @@ export default function MapaPage() {
     <div className="py-8 px-4">
       <main className="flex min-h-[calc(100vh-4rem)] items-start justify-center px-4 py-4">
         <div className="w-full max-w-7xl">
-          {/* Główny kontener */}
           <div className="rounded-2xl bg-slate-800/95 border border-slate-700 shadow-[0_14px_40px_rgba(0,0,0,0.8)] p-8">
             
-            {/* Tytuł */}
             <div className="mb-8 text-center">
               <h1 className="text-4xl font-bold text-sky-50 mb-2 flex items-center justify-center gap-3">
                 <MapPin className="h-8 w-8" />
@@ -358,7 +373,6 @@ export default function MapaPage() {
             </div>
 
             <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
-              {/* Panel filtrów */}
               <div className="lg:col-span-1">
                 <div className="bg-slate-900/70 rounded-xl border border-slate-700 p-6">
                   <h3 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
@@ -366,7 +380,6 @@ export default function MapaPage() {
                     Filtruj województwa
                   </h3>
                   
-                  {/* Filtry województw */}
                   <div className="space-y-2 max-h-96 overflow-y-auto pr-2">
                     <button
                       onClick={() => handleWojewodztwoSelect(null)}
@@ -402,13 +415,18 @@ export default function MapaPage() {
                       </button>
                     ))}
                   </div>
+                  
+                  {loadingMiejsca && (
+                    <div className="mt-4 text-center">
+                      <div className="inline-block h-4 w-4 animate-spin rounded-full border-2 border-solid border-sky-500 border-r-transparent mr-2"></div>
+                      <span className="text-slate-300 text-sm">Ładowanie miejsc...</span>
+                    </div>
+                  )}
                 </div>
               </div>
 
-              {/* Mapa */}
               <div className="lg:col-span-3">
                 <div className="rounded-xl border border-slate-700 overflow-hidden h-[600px] relative bg-slate-900/70">
-                  {/* Kontrolki mapy */}
                   <div className="absolute top-4 right-4 z-[1000] flex flex-col gap-2">
                     <button 
                       onClick={zoomIn}
@@ -440,17 +458,6 @@ export default function MapaPage() {
                     </button>
                   </div>
 
-                  {/* Informacja o zoomie */}
-                  <div className="absolute bottom-4 left-4 z-[1000]">
-                    <div className="bg-slate-900/90 text-white text-sm px-3 py-2 rounded-lg shadow-lg border border-slate-600">
-                      <div className="flex items-center gap-2">
-                        <span>Zoom:</span>
-                        <span className="font-bold text-sky-300">{zoomLevel}×</span>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Stan ładowania */}
                   {loading && (
                     <div className="absolute inset-0 flex items-center justify-center bg-slate-900/90 z-[1000]">
                       <div className="text-center p-8">
@@ -460,7 +467,6 @@ export default function MapaPage() {
                     </div>
                   )}
 
-                  {/* Błąd */}
                   {error && (
                     <div className="absolute inset-0 flex items-center justify-center bg-slate-900/90 z-[1000]">
                       <div className="bg-red-900/50 border border-red-700 rounded-xl p-6 max-w-md">
@@ -474,7 +480,7 @@ export default function MapaPage() {
                         </div>
                         <p className="text-red-400 mb-4">{error}</p>
                         <button 
-                          onClick={() => window.location.reload()}
+                          onClick={() => typeof window !== 'undefined' && window.location.reload()}
                           className="w-full bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg font-medium transition-all"
                         >
                           Odśwież stronę
@@ -483,7 +489,6 @@ export default function MapaPage() {
                     </div>
                   )}
 
-                  {/* Mapa */}
                   <div 
                     ref={mapContainerRef}
                     className="w-full h-full"
@@ -495,7 +500,6 @@ export default function MapaPage() {
         </div>
       </main>
 
-      {/* Styl dla markerów */}
       <style jsx global>{`
         .leaflet-popup-content {
           margin: 0 !important;
