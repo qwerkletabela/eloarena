@@ -50,40 +50,12 @@ const SIMPLE_POLAND_BORDER: [number, number][] = [
   [54.835, 14.25]
 ]
 
-// Styl dla markerów
-const createTournamentIcon = (isSelected: boolean = false, liczbaTurniejow: number = 1) => {
-  const size = Math.min(36 + (liczbaTurniejow * 2), 52)
-  const iconSize: [number, number] = [size, size]
-  const iconAnchor: [number, number] = [size / 2, size]
-  
-  return L.divIcon({
-    html: `
-      <div class="relative">
-        <div class="rounded-full ${
-          isSelected 
-            ? 'bg-gradient-to-r from-red-600 to-orange-600 border-3 border-white shadow-lg' 
-            : 'bg-gradient-to-r from-red-500 to-orange-500 border-2 border-white shadow-md'
-        } flex items-center justify-center transform hover:scale-110 transition-all duration-200 hover:shadow-xl"
-          style="width: ${size}px; height: ${size}px;"
-        >
-          ${liczbaTurniejow > 1 ? `
-            <div class="absolute -top-2 -right-2 w-7 h-7 bg-gradient-to-r from-cyan-500 to-blue-500 rounded-full flex items-center justify-center border-2 border-white shadow-md">
-              <span class="text-xs font-bold text-white">${liczbaTurniejow}</span>
-            </div>
-          ` : ''}
-          <svg class="w-${Math.floor(size/2.5)} h-${Math.floor(size/2.5)} text-white" fill="currentColor" viewBox="0 0 20 20">
-            <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM7 9a1 1 0 100-2 1 1 0 000 2zm7-1a1 1 0 11-2 0 1 1 0 012 0zm-.464 5.535a1 1 0 10-1.415-1.414 3 3 0 01-4.242 0 1 1 0 00-1.415 1.414 5 5 0 007.072 0z" clip-rule="evenodd"/>
-          </svg>
-        </div>
-        <div class="absolute -bottom-1 left-1/2 transform -translate-x-1/2 w-3 h-3 ${
-          isSelected ? 'bg-gradient-to-r from-red-600 to-orange-600' : 'bg-gradient-to-r from-red-500 to-orange-500'
-        } rotate-45 shadow-sm"></div>
-      </div>
-    `,
-    className: 'custom-marker',
-    iconSize,
-    iconAnchor,
-    popupAnchor: [0, -size]
+// Prosta pinezka Leaflet (bez numerków)
+const createSimpleIcon = () => {
+  return new L.Icon.Default({
+    iconSize: [30, 46],      // Rozmiar pinezki
+    iconAnchor: [15, 46],    // Punkt zakotwiczenia (dół pinezki)
+    popupAnchor: [0, -46]    // Gdzie pojawi się popup
   })
 }
 
@@ -203,9 +175,10 @@ export default function MapaPage() {
     miejsca.forEach((miejsce) => {
       if (!miejsce.latitude || !miejsce.longitude) return
 
+      // Używamy prostej pinezki bez numerków
       const marker = L.marker([miejsce.latitude, miejsce.longitude], {
-        icon: createTournamentIcon(false, miejsce.liczba_turniejow || 1),
-        title: `${miejsce.nazwa} - ${miejsce.liczba_turniejow || 0} turniejów`
+        icon: createSimpleIcon(),
+        title: `${miejsce.nazwa}` // Tylko nazwa, bez liczby turniejów
       })
 
       // Treść popupu
@@ -257,12 +230,7 @@ export default function MapaPage() {
       // Obsługa kliknięcia
       marker.on('click', () => {
         setSelectedMiejsce(miejsce)
-        marker.setIcon(createTournamentIcon(true, miejsce.liczba_turniejow || 1))
-        
-        // Po zamknięciu popupu resetuj ikonę
-        marker.on('popupclose', () => {
-          marker.setIcon(createTournamentIcon(false, miejsce.liczba_turniejow || 1))
-        })
+        // Nie zmieniamy ikony - używamy zawsze tej samej
       })
 
       marker.addTo(map)
@@ -376,7 +344,7 @@ export default function MapaPage() {
 
   return (
     <div className="py-8 px-4">
-      <main className="flex min-h-[calc(100vh-4rem)] items-start justify-center px-4 py-8">
+      <main className="flex min-h-[calc(100vh-4rem)] items-start justify-center px-4 py-4">
         <div className="w-full max-w-7xl">
           {/* Główny kontener */}
           <div className="rounded-2xl bg-slate-800/95 border border-slate-700 shadow-[0_14px_40px_rgba(0,0,0,0.8)] p-8">
@@ -529,11 +497,6 @@ export default function MapaPage() {
 
       {/* Styl dla markerów */}
       <style jsx global>{`
-        .custom-marker {
-          background: transparent !important;
-          border: none !important;
-        }
-        
         .leaflet-popup-content {
           margin: 0 !important;
         }

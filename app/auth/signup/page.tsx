@@ -241,7 +241,7 @@ export default function SignUp() {
 
   return (
     <div className="py-8 px-4">
-      <main className="flex min-h-[calc(100vh-4rem)] items-start justify-center px-4 py-8">
+      <main className="flex min-h-[calc(100vh-4rem)] items-start justify-center px-4 py-4">
         <div className="w-full max-w-md">
           {/* Karta formularza - teraz zawiera nagłówek wewnątrz */}
           <div className="rounded-2xl bg-slate-800/95 border border-slate-700 shadow-[0_14px_40px_rgba(0,0,0,0.8)] p-8">
@@ -288,7 +288,7 @@ export default function SignUp() {
                       : 'border-slate-600 bg-slate-900/70 focus:border-sky-400 focus:ring-sky-400/20'
                   }`}
                   type="email"
-                  placeholder="twoj@email.pl"
+                  placeholder=""
                   value={formData.email}
                   onChange={handleChange('email')}
                   required
@@ -319,7 +319,7 @@ export default function SignUp() {
                         : 'border-red-500 bg-red-900/20 focus:border-red-400 focus:ring-red-400/20'
                     }`}
                     type={showPassword ? 'text' : 'password'}
-                    placeholder="Minimum 6 znaków"
+                    placeholder=""
                     value={formData.password}
                     onChange={handleChange('password')}
                     minLength={6}
@@ -348,7 +348,10 @@ export default function SignUp() {
               {/* Pole Potwierdzenia Hasła */}
               <div>
                 <label className="block text-sm font-medium text-slate-300 mb-2">
-                  Potwierdź hasło
+                  <div className="flex items-center gap-2">
+                    <Lock size={16} />
+                    Hasło
+                  </div>
                 </label>
                 <div className="relative">
                   <input
@@ -358,7 +361,7 @@ export default function SignUp() {
                         : 'border-red-500 bg-red-900/20 focus:border-red-400 focus:ring-red-400/20'
                     }`}
                     type={showConfirmPassword ? 'text' : 'password'}
-                    placeholder="Powtórz hasło"
+                    placeholder=""
                     value={formData.confirmPassword}
                     onChange={handleChange('confirmPassword')}
                     minLength={6}

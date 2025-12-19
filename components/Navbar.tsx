@@ -45,7 +45,7 @@ const NavLink = ({
     <Link
       href={href}
       className={`
-        relative px-3 py-2 text-sm font-medium transition
+        relative px-3 py-1 text-sm font-medium transition
         text-sky-300/80 hover:text-sky-600
         ${isActive ? 'text-sky-300' : ''}
         ${className}
