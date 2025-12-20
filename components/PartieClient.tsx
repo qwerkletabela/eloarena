@@ -3,7 +3,7 @@
 
 import { useState } from 'react'
 import Link from 'next/link'
-import { 
+import {
   Calendar,
   Users,
   Trophy,
@@ -11,7 +11,7 @@ import {
   Search,
   Filter,
   ChevronDown,
-  CheckCircle
+  CheckCircle,
 } from 'lucide-react'
 import DeletePartia from './DeletePartia'
 
@@ -50,16 +50,17 @@ export default function PartieClient({ partie, turnieje = [] }: PartieClientProp
   const [searchTerm, setSearchTerm] = useState('')
   const [selectedTurniej, setSelectedTurniej] = useState('wszystkie')
 
-  const filteredPartie = partie.filter(partia => {
-    const matchesSearch = searchTerm === '' || 
+  const filteredPartie = partie.filter((partia) => {
+    const matchesSearch =
+      searchTerm === '' ||
       partia.numer_partii.toString().includes(searchTerm) ||
-      partia.gracze.some(g => 
+      partia.gracze.some((g) =>
         `${g.imie} ${g.nazwisko}`.toLowerCase().includes(searchTerm.toLowerCase())
       ) ||
       partia.turniej.nazwa.toLowerCase().includes(searchTerm.toLowerCase())
-    
-    const matchesTurniej = selectedTurniej === 'wszystkie' || 
-      partia.turniej.id === selectedTurniej
+
+    const matchesTurniej =
+      selectedTurniej === 'wszystkie' || partia.turniej.id === selectedTurniej
 
     return matchesSearch && matchesTurniej
   })
@@ -69,9 +70,7 @@ export default function PartieClient({ partie, turnieje = [] }: PartieClientProp
       <div className="text-center py-8">
         <Trophy className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
         <h3 className="text-lg font-semibold text-foreground mb-2">Brak partii</h3>
-        <p className="text-muted-foreground mb-4">
-          Nie dodano jeszcze żadnych partii.
-        </p>
+        <p className="text-muted-foreground mb-4">Nie dodano jeszcze żadnych partii.</p>
         <Link
           href="/admin/partie/nowa"
           className="inline-flex items-center px-4 py-2 bg-primary hover:bg-primary/90 text-primary-foreground rounded-lg font-medium transition-colors"
@@ -98,7 +97,7 @@ export default function PartieClient({ partie, turnieje = [] }: PartieClientProp
             />
           </div>
         </div>
-        
+
         {turnieje.length > 0 && (
           <div className="relative min-w-[200px]">
             <Filter className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
@@ -129,8 +128,10 @@ export default function PartieClient({ partie, turnieje = [] }: PartieClientProp
       {/* Lista partii */}
       <div className="space-y-4">
         {filteredPartie.map((partia) => {
-          const duzyPunktGracz = partia.gracze.find(g => g.id === partia.duzy_punkt_gracz_id)
-          
+          const duzyPunktGracz = partia.gracze.find(
+            (g) => g.id === partia.duzy_punkt_gracz_id
+          )
+
           // Przygotuj dane graczy dla komponentu DeletePartia
           const graczeDlaUsuwania = partia.gracze.map((gracz, index) => {
             const numerGracza = index + 1
@@ -138,11 +139,11 @@ export default function PartieClient({ partie, turnieje = [] }: PartieClientProp
               id: gracz.id,
               imie: gracz.imie,
               nazwisko: gracz.nazwisko,
-              eloPrzed: partia[`elo_przed${numerGracza}`] || 1200,
-              zmianaElo: partia[`zmiana_elo${numerGracza}`] || 0
+              eloPrzed: partia[`elo_przed${numerGracza}`] ?? 1200,
+              zmianaElo: partia[`zmiana_elo${numerGracza}`] ?? 0,
             }
           })
-          
+
           return (
             <div key={partia.id} className="bg-secondary border border-border rounded-lg overflow-hidden">
               {/* Nagłówek */}
@@ -166,7 +167,7 @@ export default function PartieClient({ partie, turnieje = [] }: PartieClientProp
                       </div>
                     </div>
                   </div>
-                  
+
                   <div className="flex items-center gap-2">
                     <Link
                       href={`/admin/turniej/${partia.turniej_id}/partie/${partia.id}`}
@@ -175,6 +176,7 @@ export default function PartieClient({ partie, turnieje = [] }: PartieClientProp
                       <Eye className="h-3.5 w-3.5" />
                       Szczegóły
                     </Link>
+
                     <DeletePartia
                       partiaId={partia.id}
                       turniejId={partia.turniej_id}
@@ -203,25 +205,29 @@ export default function PartieClient({ partie, turnieje = [] }: PartieClientProp
                       {partia.gracze.map((gracz, index) => {
                         const isWinner = gracz.id === partia.duzy_punkt_gracz_id
                         const playerLetter = String.fromCharCode(65 + index) // A, B, C, D
-                        
+
                         return (
-                          <tr 
-                            key={gracz.id} 
+                          <tr
+                            key={gracz.id}
                             className={`border-b border-border last:border-0 ${
                               isWinner ? 'bg-success/5' : ''
                             }`}
                           >
                             <td className="py-2 px-3">
-                              <div className={`font-medium ${
-                                isWinner ? 'text-success' : 'text-foreground'
-                              }`}>
+                              <div
+                                className={`font-medium ${
+                                  isWinner ? 'text-success' : 'text-foreground'
+                                }`}
+                              >
                                 {playerLetter}
                               </div>
                             </td>
                             <td className="py-2 px-3">
-                              <div className={`font-medium ${
-                                isWinner ? 'text-success' : 'text-foreground'
-                              }`}>
+                              <div
+                                className={`font-medium ${
+                                  isWinner ? 'text-success' : 'text-foreground'
+                                }`}
+                              >
                                 {gracz.imie} {gracz.nazwisko}
                               </div>
                             </td>
@@ -263,8 +269,7 @@ export default function PartieClient({ partie, turnieje = [] }: PartieClientProp
           <p className="text-muted-foreground mb-2">
             {searchTerm || selectedTurniej !== 'wszystkie'
               ? 'Nie znaleziono partii'
-              : 'Brak partii do wyświetlenia'
-            }
+              : 'Brak partii do wyświetlenia'}
           </p>
           {(searchTerm || selectedTurniej !== 'wszystkie') && (
             <button

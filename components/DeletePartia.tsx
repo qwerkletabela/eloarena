@@ -18,6 +18,9 @@ interface DeletePartiaProps {
   numerPartii: number
   nazwaTurnieju: string
   gracze: GraczDlaUsuwania[]
+  className?: string
+  iconOnly?: boolean
+
 }
 
 export default function DeletePartia({ partiaId, turniejId, numerPartii, nazwaTurnieju, gracze }: DeletePartiaProps) {
