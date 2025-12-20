@@ -3,7 +3,7 @@ import { redirect } from 'next/navigation'
 import Link from 'next/link'
 import { createSupabaseServer } from '@/lib/supabase/server'
 import DeleteTurniej from '@/components/DeleteTurniej'
-import { Users, BarChart3, Plus } from 'lucide-react'
+import { Users, Plus, Calendar, Clock, UserCheck, FileText } from 'lucide-react'
 
 export const dynamic = 'force-dynamic'
 export const revalidate = 0
@@ -121,16 +121,13 @@ export default async function AdminTurniejList() {
                   Nazwa turnieju
                 </th>
                 <th className="px-4 py-3 text-left text-sky-100 font-medium text-xs uppercase tracking-wider">
-                  Data i godzina
-                </th>
-                <th className="px-4 py-3 text-left text-sky-100 font-medium text-xs uppercase tracking-wider">
-                  Zakończenie
-                </th>
-                <th className="px-4 py-3 text-left text-sky-100 font-medium text-xs uppercase tracking-wider">
-                  Partie
+                  Termin
                 </th>
                 <th className="px-4 py-3 text-left text-sky-100 font-medium text-xs uppercase tracking-wider">
                   Limit graczy
+                </th>
+                <th className="px-4 py-3 text-left text-sky-100 font-medium text-xs uppercase tracking-wider">
+                  Partie
                 </th>
                 <th className="px-4 py-3 text-left text-sky-100 font-medium text-xs uppercase tracking-wider">
                   Utworzono
@@ -148,109 +145,129 @@ export default async function AdminTurniejList() {
                 return (
                   <tr key={r.id} className="hover:bg-slate-700/30 transition">
                     <td className="px-4 py-3">
-                      <Link
-                        href={`/admin/turniej/${r.id}/edit`}
-                        className="text-sky-100 hover:text-sky-200 font-medium hover:underline"
-                      >
-                        {r.nazwa}
-                      </Link>
-                    </td>
-
-                    <td className="px-4 py-3 text-sky-100">
-                      {r.data_turnieju ? (
-                        <div className="space-y-1">
-                          <div className="text-sm">
-                            {start ? formatDatePL(start) : r.data_turnieju}
-                          </div>
-                          {r.godzina_turnieju && (
-                            <div className="text-xs text-slate-300">
-                              Start: {formatTimeHHMM(r.godzina_turnieju)}
-                            </div>
-                          )}
-                        </div>
-                      ) : (
-                        '—'
-                      )}
-                    </td>
-
-                    <td className="px-4 py-3 text-sky-100">
-                      {r.zakonczenie_turnieju ? (
-                        <span className="text-sm">
-                          {formatTimeHHMM(r.zakonczenie_turnieju)}
-                        </span>
-                      ) : (
-                        <span className="text-xs text-slate-500">nieustalone</span>
-                      )}
-                    </td>
-
-                    <td className="px-4 py-3">
-                      <div className="flex flex-col gap-2">
-                        <div className="flex items-center gap-2">
-                          <span className="text-sky-100 text-sm">
-                            {r.liczba_partii} partii
-                          </span>
-                        </div>
-                        <div className="flex gap-1">
+                      <div className="space-y-1">
+                        <Link
+                          href={`/admin/turniej/${r.id}/edit`}
+                          className="text-sky-100 hover:text-sky-200 font-medium hover:underline block"
+                        >
+                          {r.nazwa}
+                        </Link>
+                        <div className="flex gap-2">
                           <Link
                             href={`/admin/turniej/${r.id}/partie`}
-                            className="inline-flex items-center gap-1 rounded bg-green-600 hover:bg-green-500 px-2 py-1 text-xs font-medium text-white transition"
+                            className="inline-flex items-center gap-1 text-xs text-slate-400 hover:text-slate-300 transition"
                           >
                             <Users className="h-3 w-3" />
-                            Partie
+                            Zarządzaj
                           </Link>
                           <Link
                             href={`/admin/turniej/${r.id}/partie/nowa`}
-                            className="inline-flex items-center gap-1 rounded bg-sky-600 hover:bg-sky-500 px-2 py-1 text-xs font-medium text-white transition"
+                            className="inline-flex items-center gap-1 text-xs text-sky-400 hover:text-sky-300 transition"
                           >
                             <Plus className="h-3 w-3" />
-                            Nowa
-                          </Link>
-                          <Link
-                            href={`/admin/turniej/${r.id}/ranking`}
-                            className="inline-flex items-center gap-1 rounded bg-purple-600 hover:bg-purple-500 px-2 py-1 text-xs font-medium text-white transition"
-                          >
-                            <BarChart3 className="h-3 w-3" />
-                            Ranking
+                            Dodaj partię
                           </Link>
                         </div>
                       </div>
                     </td>
 
-                    <td className="px-4 py-3 text-sky-100">
+                    <td className="px-4 py-3">
+                      <div className="space-y-1">
+                        {r.data_turnieju ? (
+                          <div className="flex items-center gap-2 text-sky-100">
+                            <Calendar className="h-3 w-3 text-slate-400" />
+                            <span className="text-sm">
+                              {start ? formatDatePL(start) : r.data_turnieju}
+                            </span>
+                          </div>
+                        ) : (
+                          <span className="text-slate-500 text-sm">—</span>
+                        )}
+                        
+                        <div className="flex items-center gap-3 text-xs">
+                          {r.godzina_turnieju && (
+                            <div className="flex items-center gap-1 text-slate-300">
+                              <Clock className="h-3 w-3" />
+                              <span>Start: {formatTimeHHMM(r.godzina_turnieju)}</span>
+                            </div>
+                          )}
+                          
+                          {r.zakonczenie_turnieju && (
+                            <div className="flex items-center gap-1 text-slate-300">
+                              <Clock className="h-3 w-3" />
+                              <span>Koniec: {formatTimeHHMM(r.zakonczenie_turnieju)}</span>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    </td>
+
+                    <td className="px-4 py-3">
                       {r.limit_graczy ? (
-                        <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-slate-700 text-sky-100">
-                          {r.limit_graczy} graczy
-                        </span>
+                        <div className="flex items-center gap-2 text-sky-100">
+                          <UserCheck className="h-4 w-4" />
+                          <span className="font-medium">{r.limit_graczy}</span>
+                          <span className="text-xs text-slate-400">graczy</span>
+                        </div>
                       ) : (
-                        '—'
+                        <span className="text-slate-500 text-sm">Bez limitu</span>
                       )}
                     </td>
 
-                    <td className="px-4 py-3 text-sky-100 text-sm">
-                      {r.created_at
-                        ? new Date(r.created_at).toLocaleDateString('pl-PL')
-                        : '—'}
+                    <td className="px-4 py-3">
+                      <div className="flex items-center gap-2">
+                        <div className="flex items-center gap-1 text-sky-100">
+                          <FileText className="h-4 w-4" />
+                          <span className="font-medium">{r.liczba_partii}</span>
+                        </div>
+                        {r.liczba_partii > 0 && (
+                          <Link
+                            href={`/admin/turniej/${r.id}/partie`}
+                            className="text-xs text-slate-400 hover:text-slate-300 underline"
+                          >
+                            zobacz
+                          </Link>
+                        )}
+                      </div>
                     </td>
 
-                    <td className="px-4 py-3 text-right space-x-2">
-                      <Link
-                        href={`/admin/turniej/${r.id}/edit`}
-                        className="inline-flex items-center gap-1 rounded bg-sky-600 hover:bg-sky-500 px-3 py-1 text-xs font-medium text-white transition"
-                      >
-                        <svg
-                          width="12"
-                          height="12"
-                          viewBox="0 0 24 24"
-                          fill="none"
-                          stroke="currentColor"
-                          strokeWidth="2"
+                    <td className="px-4 py-3">
+                      <div className="text-sky-100 text-sm">
+                        {r.created_at
+                          ? new Date(r.created_at).toLocaleDateString('pl-PL')
+                          : '—'}
+                      </div>
+                      {r.created_at && (
+                        <div className="text-xs text-slate-400">
+                          {new Date(r.created_at).toLocaleTimeString('pl-PL', {
+                            hour: '2-digit',
+                            minute: '2-digit'
+                          })}
+                        </div>
+                      )}
+                    </td>
+
+                    <td className="px-4 py-3">
+                      <div className="flex justify-end gap-2">
+                        <Link
+                          href={`/admin/turniej/${r.id}/edit`}
+                          className="inline-flex items-center gap-1 rounded-md bg-slate-700 hover:bg-slate-600 px-3 py-1.5 text-xs font-medium text-sky-100 transition border border-slate-600"
                         >
-                          <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
-                          <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
-                        </svg>
-                        Edytuj
-                      </Link>
-                      <DeleteTurniej id={r.id} nazwa={r.nazwa} />
+                          <svg
+                            width="12"
+                            height="12"
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            stroke="currentColor"
+                            strokeWidth="2"
+                          >
+                            <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
+                            <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
+                          </svg>
+                          Edytuj
+                        </Link>
+                        <DeleteTurniej id={r.id} nazwa={r.nazwa} />
+                      </div>
                     </td>
                   </tr>
                 )
@@ -260,7 +277,7 @@ export default async function AdminTurniejList() {
                 <tr>
                   <td
                     className="px-4 py-8 text-center text-slate-400 text-sm"
-                    colSpan={7}
+                    colSpan={6}
                   >
                     <div className="flex flex-col items-center gap-2">
                       <svg
@@ -294,13 +311,18 @@ export default async function AdminTurniejList() {
         </div>
 
         {turniejeZPartiami && turniejeZPartiami.length > 0 && (
-          <div className="text-sm text-slate-400 text-center">
-            Znaleziono {turniejeZPartiami.length} turniej
-            {turniejeZPartiami.length === 1
-              ? ''
-              : turniejeZPartiami.length > 1 && turniejeZPartiami.length < 5
-              ? 'e'
-              : 'y'}
+          <div className="flex justify-between items-center text-sm text-slate-400">
+            <div>
+              Znaleziono {turniejeZPartiami.length} turniej
+              {turniejeZPartiami.length === 1
+                ? ''
+                : turniejeZPartiami.length > 1 && turniejeZPartiami.length < 5
+                ? 'e'
+                : 'y'}
+            </div>
+            <div className="text-xs">
+              Ostatnie turnieje na górze
+            </div>
           </div>
         )}
       </div>

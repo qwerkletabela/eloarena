@@ -10,16 +10,18 @@ interface AddTurniejProps {
   nazwa: string
   data: string
   miejsce: string
+  gra: string // <-- NOWE
 }
 
-export default function AddTurniej({ 
-  isOpen, 
-  onClose, 
+export default function AddTurniej({
+  isOpen,
+  onClose,
   onConfirm,
   isSubmitting,
-  nazwa, 
-  data, 
-  miejsce 
+  nazwa,
+  data,
+  miejsce,
+  gra, // <-- NOWE
 }: AddTurniejProps) {
   const router = useRouter()
 
@@ -43,11 +45,10 @@ export default function AddTurniej({
 
         {/* Treść */}
         <div className="px-6 py-4">
-          <p className="text-sky-100 mb-4">
-            Czy na pewno chcesz utworzyć następujący turniej?
-          </p>
-          
+          <p className="text-sky-100 mb-4">Czy na pewno chcesz utworzyć następujący turniej?</p>
+
           <div className="space-y-3 bg-slate-700/30 rounded-lg p-4 border border-slate-600/50">
+            {/* Nazwa */}
             <div className="flex items-center gap-3">
               <div className="flex h-8 w-8 items-center justify-center rounded-full bg-sky-500/20">
                 <svg className="h-4 w-4 text-sky-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -60,6 +61,25 @@ export default function AddTurniej({
               </div>
             </div>
 
+            {/* Gra (NOWE) */}
+            <div className="flex items-center gap-3">
+              <div className="flex h-8 w-8 items-center justify-center rounded-full bg-sky-500/20">
+                <svg className="h-4 w-4 text-sky-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M14 7a2 2 0 10-4 0v1a1 1 0 01-1 1H8a2 2 0 100 4h1a1 1 0 011 1v1a2 2 0 104 0v-1a1 1 0 011-1h1a2 2 0 100-4h-1a1 1 0 01-1-1V7z"
+                  />
+                </svg>
+              </div>
+              <div>
+                <p className="text-sm font-medium text-sky-100">{gra}</p>
+                <p className="text-xs text-slate-400">Gra / wariant</p>
+              </div>
+            </div>
+
+            {/* Data */}
             <div className="flex items-center gap-3">
               <div className="flex h-8 w-8 items-center justify-center rounded-full bg-sky-500/20">
                 <svg className="h-4 w-4 text-sky-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -72,6 +92,7 @@ export default function AddTurniej({
               </div>
             </div>
 
+            {/* Miejsce */}
             <div className="flex items-center gap-3">
               <div className="flex h-8 w-8 items-center justify-center rounded-full bg-sky-500/20">
                 <svg className="h-4 w-4 text-sky-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -106,6 +127,7 @@ export default function AddTurniej({
             </svg>
             Anuluj
           </button>
+
           <button
             onClick={onConfirm}
             disabled={isSubmitting}
@@ -115,7 +137,11 @@ export default function AddTurniej({
               <>
                 <svg className="animate-spin h-4 w-4 text-white" fill="none" viewBox="0 0 24 24">
                   <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                  <path
+                    className="opacity-75"
+                    fill="currentColor"
+                    d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                  ></path>
                 </svg>
                 Zapisywanie...
               </>
