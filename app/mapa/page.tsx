@@ -1,16 +1,18 @@
 // app/mapa/page.tsx
 'use client'
 
+import 'leaflet/dist/leaflet.css' // ✅ DODAJ TO (statycznie, top-level)
+
 import { useEffect, useState, useRef, useCallback } from 'react'
 import { GeoJsonObject } from 'geojson'
 import { supabase } from '@/lib/supabase/client'
-import { 
-  MapPin, 
+import {
+  MapPin,
   Filter,
   ZoomIn,
   ZoomOut,
   Navigation,
-  RefreshCw
+  RefreshCw,
 } from 'lucide-react'
 
 // Typy
@@ -37,7 +39,7 @@ const SIMPLE_POLAND_BORDER: [number, number][] = [
   [49.0, 17.0],
   [49.0, 15.0],
   [51.0, 14.0],
-  [54.835, 14.25]
+  [54.835, 14.25],
 ]
 
 export default function MapaPage() {
@@ -45,8 +47,10 @@ export default function MapaPage() {
   const [loadingMiejsca, setLoadingMiejsca] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [miejsca, setMiejsca] = useState<Miejsce[]>([])
-  const [selectedWojewodztwo, setSelectedWojewodztwo] = useState<string | null>(null)
-  
+  const [selectedWojewodztwo, setSelectedWojewodztwo] = useState<string | null>(
+    null
+  )
+
   const mapContainerRef = useRef<HTMLDivElement>(null)
   const mapRef = useRef<any>(null)
   const geoJsonLayerRef = useRef<any>(null)
@@ -60,63 +64,72 @@ export default function MapaPage() {
   const fetchMiejsca = useCallback(async () => {
     try {
       setLoadingMiejsca(true)
-      
+
       const { data, error } = await supabase
         .from('miejsce_turnieju')
-        .select(`
+        .select(
+          `
           *,
           turniej (id)
-        `)
+        `
+        )
         .not('latitude', 'is', null)
         .not('longitude', 'is', null)
         .order('miasto', { ascending: true })
 
       if (error) throw error
 
-      const miejscaZTurniejami = (data || []).map(miejsce => ({
+      const miejscaZTurniejami = (data || []).map((miejsce) => ({
         ...miejsce,
-        liczba_turniejow: Array.isArray(miejsce.turniej) ? miejsce.turniej.length : 0
+        liczba_turniejow: Array.isArray((miejsce as any).turniej)
+          ? (miejsce as any).turniej.length
+          : 0,
       }))
 
       setMiejsca(miejscaZTurniejami)
-      
     } catch (err: any) {
       console.error('❌ Błąd pobierania miejsc:', err)
-      setError(`Błąd pobierania danych miejsc: ${err.message || 'Nieznany błąd'}`)
+      setError(
+        `Błąd pobierania danych miejsc: ${err.message || 'Nieznany błąd'}`
+      )
     } finally {
       setLoadingMiejsca(false)
     }
   }, [])
 
   // Dodaj markery miejsc do mapy
-  const addMarkersToMap = useCallback((miejsca: Miejsce[], map: any, L: any) => {
-    if (!map || !L) return
+  const addMarkersToMap = useCallback(
+    (miejsca: Miejsce[], map: any, L: any) => {
+      if (!map || !L) return
 
-    // Wyczyść stare markery
-    markersRef.current.forEach(marker => {
-      marker.remove()
-    })
-    markersRef.current = []
-
-    if (miejsca.length === 0) return
-    
-    miejsca.forEach((miejsce) => {
-      if (!miejsce.latitude || !miejsce.longitude) return
-
-      const marker = L.marker([miejsce.latitude, miejsce.longitude], {
-        icon: L.icon({
-          iconUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon.png',
-          iconRetinaUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon-2x.png',
-          shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-shadow.png',
-          iconSize: [30, 46],
-          iconAnchor: [15, 46],
-          popupAnchor: [0, -46]
-        }),
-        title: `${miejsce.nazwa}`
+      // Wyczyść stare markery
+      markersRef.current.forEach((marker) => {
+        marker.remove()
       })
+      markersRef.current = []
 
-      // Treść popupu
-      const popupContent = `
+      if (miejsca.length === 0) return
+
+      miejsca.forEach((miejsce) => {
+        if (!miejsce.latitude || !miejsce.longitude) return
+
+        const marker = L.marker([miejsce.latitude, miejsce.longitude], {
+          icon: L.icon({
+            iconUrl:
+              'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon.png',
+            iconRetinaUrl:
+              'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon-2x.png',
+            shadowUrl:
+              'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-shadow.png',
+            iconSize: [30, 46],
+            iconAnchor: [15, 46],
+            popupAnchor: [0, -46],
+          }),
+          title: `${miejsce.nazwa}`,
+        })
+
+        // Treść popupu
+        const popupContent = `
         <div class="p-4 min-w-[300px] bg-slate-800 border border-slate-700 rounded-xl shadow-xl">
           <h3 class="font-bold text-lg text-white mb-3">${miejsce.nazwa}</h3>
           <div class="space-y-3">
@@ -129,10 +142,16 @@ export default function MapaPage() {
               </div>
               <div>
                 <div class="font-medium text-sky-100">${miejsce.miasto}</div>
-                ${miejsce.wojewodztwo ? `<div class="text-sm text-slate-300">${miejsce.wojewodztwo}</div>` : ''}
+                ${
+                  miejsce.wojewodztwo
+                    ? `<div class="text-sm text-slate-300">${miejsce.wojewodztwo}</div>`
+                    : ''
+                }
               </div>
             </div>
-            ${miejsce.adres ? `
+            ${
+              miejsce.adres
+                ? `
               <div class="flex items-start pt-3 border-t border-slate-700">
                 <div class="rounded-lg bg-slate-700 p-2 mr-3">
                   <svg class="w-4 h-4 text-emerald-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -141,7 +160,9 @@ export default function MapaPage() {
                 </div>
                 <div class="text-sm text-slate-300">${miejsce.adres}</div>
               </div>
-            ` : ''}
+            `
+                : ''
+            }
             <div class="flex items-center justify-between pt-3 border-t border-slate-700">
               <div class="flex items-center">
                 <div class="rounded-lg bg-slate-700 p-2 mr-3">
@@ -150,7 +171,9 @@ export default function MapaPage() {
                   </svg>
                 </div>
                 <div>
-                  <div class="text-lg font-bold text-amber-300">${miejsce.liczba_turniejow || 0}</div>
+                  <div class="text-lg font-bold text-amber-300">${
+                    miejsce.liczba_turniejow || 0
+                  }</div>
                   <div class="text-xs text-slate-400">turniejów</div>
                 </div>
               </div>
@@ -159,38 +182,40 @@ export default function MapaPage() {
         </div>
       `
 
-      marker.bindPopup(popupContent)
-      marker.addTo(map)
-      markersRef.current.push(marker)
-    })
-  }, [])
+        marker.bindPopup(popupContent)
+        marker.addTo(map)
+        markersRef.current.push(marker)
+      })
+    },
+    []
+  )
 
   // Załaduj granice Polski
   const loadPolandBorders = useCallback((map: any, L: any) => {
     if (!map || !L) return
 
     fetch('/data/poland/poland.geojson')
-      .then(response => {
+      .then((response) => {
         if (!response.ok) {
           throw new Error(`HTTP ${response.status}: ${response.statusText}`)
         }
         return response.json()
       })
-      .then(data => {
+      .then((data) => {
         const geoJsonData = data as GeoJsonObject
-        
+
         if (geoJsonLayerRef.current) {
           map.removeLayer(geoJsonLayerRef.current)
         }
-        
+
         geoJsonLayerRef.current = L.geoJSON(geoJsonData, {
           style: {
             fillColor: 'transparent',
             color: '#0000ff',
             weight: 5,
             opacity: 0.7,
-            fillOpacity: 0.1
-          }
+            fillOpacity: 0.1,
+          },
         }).addTo(map)
       })
       .catch(() => {
@@ -199,7 +224,7 @@ export default function MapaPage() {
           color: '#38bdf8',
           weight: 5,
           opacity: 0.8,
-          fillOpacity: 0.1
+          fillOpacity: 0.1,
         }).addTo(map)
       })
   }, [])
@@ -213,14 +238,14 @@ export default function MapaPage() {
     const initMap = async () => {
       try {
         setLoading(true)
-        
+
         // Dynamiczny import Leaflet tylko po stronie klienta
         const L = await import('leaflet')
-        
-        // Zaimportuj CSS Leaflet (bez await)
-        import('leaflet/dist/leaflet.css')
-          .catch((err) => console.warn('Błąd ładowania CSS Leaflet:', err))
-        
+
+        // ❌ USUNIĘTE:
+        // import('leaflet/dist/leaflet.css')
+        //   .catch((err) => console.warn('Błąd ładowania CSS Leaflet:', err))
+
         leafletRef.current = L
 
         // Utwórz mapę
@@ -229,18 +254,18 @@ export default function MapaPage() {
 
         // Dodaj warstwę OpenStreetMap
         L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-          attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+          attribution:
+            '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
           maxZoom: 19,
         }).addTo(map)
 
         // Załaduj granice Polski
         loadPolandBorders(map, L)
-        
+
         // Pobierz miejsca turniejów
         await fetchMiejsca()
-        
+
         setLoading(false)
-        
       } catch (err: any) {
         console.error('❌ Błąd inicjalizacji mapy:', err)
         setError(`Błąd tworzenia mapy: ${err.message || 'Nieznany błąd'}`)
@@ -270,9 +295,11 @@ export default function MapaPage() {
   }, [miejsca, addMarkersToMap])
 
   // Filtruj miejsca po województwie
-  const wojewodztwa = Array.from(new Set(miejsca.map(m => m.wojewodztwo).filter(Boolean)))
+  const wojewodztwa = Array.from(
+    new Set(miejsca.map((m) => m.wojewodztwo).filter(Boolean))
+  )
   const filteredMiejsca = selectedWojewodztwo
-    ? miejsca.filter(m => m.wojewodztwo === selectedWojewodztwo)
+    ? miejsca.filter((m) => m.wojewodztwo === selectedWojewodztwo)
     : miejsca
 
   // Kontrolki mapy
@@ -280,8 +307,8 @@ export default function MapaPage() {
     if (mapRef.current) {
       mapRef.current.setView(defaultCenter, defaultZoom)
       setSelectedWojewodztwo(null)
-      
-      markersRef.current.forEach(marker => {
+
+      markersRef.current.forEach((marker) => {
         marker.closePopup()
       })
     }
@@ -291,10 +318,10 @@ export default function MapaPage() {
     if (mapRef.current && miejsca.length > 0) {
       const bounds = leafletRef.current?.latLngBounds(
         miejsca
-          .filter(m => m.latitude && m.longitude)
-          .map(m => [m.latitude!, m.longitude!] as [number, number])
+          .filter((m) => m.latitude && m.longitude)
+          .map((m) => [m.latitude!, m.longitude!] as [number, number])
       )
-      
+
       if (bounds && bounds.isValid()) {
         mapRef.current.fitBounds(bounds, { padding: [50, 50] })
       }
@@ -315,21 +342,21 @@ export default function MapaPage() {
 
   const handleWojewodztwoSelect = (wojewodztwo: string | null) => {
     setSelectedWojewodztwo(wojewodztwo)
-    
+
     if (!mapRef.current || !leafletRef.current) return
-    
+
     const L = leafletRef.current
-    
+
     if (wojewodztwo) {
-      const miejscaWoj = miejsca.filter(m => m.wojewodztwo === wojewodztwo)
-      
+      const miejscaWoj = miejsca.filter((m) => m.wojewodztwo === wojewodztwo)
+
       // Zaktualizuj widoczność markerów
-      markersRef.current.forEach(marker => {
+      markersRef.current.forEach((marker) => {
         const latLng = marker.getLatLng()
-        const isVisible = miejscaWoj.some(m => 
-          m.latitude === latLng.lat && m.longitude === latLng.lng
+        const isVisible = miejscaWoj.some(
+          (m) => m.latitude === latLng.lat && m.longitude === latLng.lng
         )
-        
+
         if (isVisible) {
           marker.setOpacity(1)
           marker.setZIndexOffset(1000)
@@ -338,21 +365,21 @@ export default function MapaPage() {
           marker.setZIndexOffset(0)
         }
       })
-      
+
       if (miejscaWoj.length > 0) {
         const bounds = L.latLngBounds(
           miejscaWoj
-            .filter(m => m.latitude && m.longitude)
-            .map(m => [m.latitude!, m.longitude!] as [number, number])
+            .filter((m) => m.latitude && m.longitude)
+            .map((m) => [m.latitude!, m.longitude!] as [number, number])
         )
-        
+
         if (bounds.isValid()) {
           mapRef.current.fitBounds(bounds, { padding: [50, 50] })
         }
       }
     } else {
       // Pokaż wszystkie markery
-      markersRef.current.forEach(marker => {
+      markersRef.current.forEach((marker) => {
         marker.setOpacity(1)
         marker.setZIndexOffset(0)
       })
@@ -364,7 +391,6 @@ export default function MapaPage() {
       <main className="flex min-h-[calc(100vh-4rem)] items-start justify-center px-4 py-4">
         <div className="w-full max-w-7xl">
           <div className="rounded-2xl bg-slate-800/95 border border-slate-700 shadow-[0_14px_40px_rgba(0,0,0,0.8)] p-8">
-            
             <div className="mb-8 text-center">
               <h1 className="text-4xl font-bold text-sky-50 mb-2 flex items-center justify-center gap-3">
                 <MapPin className="h-8 w-8" />
@@ -379,7 +405,7 @@ export default function MapaPage() {
                     <Filter className="h-5 w-5 text-sky-400" />
                     Filtruj województwa
                   </h3>
-                  
+
                   <div className="space-y-2 max-h-96 overflow-y-auto pr-2">
                     <button
                       onClick={() => handleWojewodztwoSelect(null)}
@@ -396,10 +422,11 @@ export default function MapaPage() {
                         </span>
                       </div>
                     </button>
-                    {wojewodztwa.sort().map(woj => (
+
+                    {wojewodztwa.sort().map((woj) => (
                       <button
-                        key={woj}
-                        onClick={() => handleWojewodztwoSelect(woj)}
+                        key={woj as string}
+                        onClick={() => handleWojewodztwoSelect(woj as string)}
                         className={`w-full text-left px-3 py-3 rounded-lg transition-all ${
                           selectedWojewodztwo === woj
                             ? 'bg-sky-600 text-white shadow-md'
@@ -409,17 +436,19 @@ export default function MapaPage() {
                         <div className="flex justify-between items-center">
                           <span>{woj}</span>
                           <span className="text-xs bg-slate-700/50 px-2 py-1 rounded-full">
-                            {miejsca.filter(m => m.wojewodztwo === woj).length}
+                            {miejsca.filter((m) => m.wojewodztwo === woj).length}
                           </span>
                         </div>
                       </button>
                     ))}
                   </div>
-                  
+
                   {loadingMiejsca && (
                     <div className="mt-4 text-center">
                       <div className="inline-block h-4 w-4 animate-spin rounded-full border-2 border-solid border-sky-500 border-r-transparent mr-2"></div>
-                      <span className="text-slate-300 text-sm">Ładowanie miejsc...</span>
+                      <span className="text-slate-300 text-sm">
+                        Ładowanie miejsc...
+                      </span>
                     </div>
                   )}
                 </div>
@@ -428,28 +457,31 @@ export default function MapaPage() {
               <div className="lg:col-span-3">
                 <div className="rounded-xl border border-slate-700 overflow-hidden h-[600px] relative bg-slate-900/70">
                   <div className="absolute top-4 right-4 z-[1000] flex flex-col gap-2">
-                    <button 
+                    <button
                       onClick={zoomIn}
                       className="bg-slate-900/90 hover:bg-slate-800 text-white rounded-lg p-3 shadow-lg hover:shadow-xl transition-all border border-slate-600"
                       title="Przybliż"
                     >
                       <ZoomIn className="h-5 w-5" />
                     </button>
-                    <button 
+
+                    <button
                       onClick={zoomOut}
                       className="bg-slate-900/90 hover:bg-slate-800 text-white rounded-lg p-3 shadow-lg hover:shadow-xl transition-all border border-slate-600"
                       title="Oddal"
                     >
                       <ZoomOut className="h-5 w-5" />
                     </button>
-                    <button 
+
+                    <button
                       onClick={resetMapView}
                       className="bg-slate-900/90 hover:bg-slate-800 text-white rounded-lg p-3 shadow-lg hover:shadow-xl transition-all border border-slate-600"
                       title="Resetuj widok"
                     >
                       <RefreshCw className="h-5 w-5" />
                     </button>
-                    <button 
+
+                    <button
                       onClick={showAllPlaces}
                       className="bg-sky-600 hover:bg-sky-700 text-white rounded-lg p-3 shadow-lg hover:shadow-xl transition-all"
                       title="Pokaż wszystkie miejsca"
@@ -472,15 +504,29 @@ export default function MapaPage() {
                       <div className="bg-red-900/50 border border-red-700 rounded-xl p-6 max-w-md">
                         <div className="flex items-center gap-3 mb-3">
                           <div className="w-10 h-10 rounded-full bg-red-900/30 flex items-center justify-center">
-                            <svg className="w-6 h-6 text-red-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 16.5c-.77.833.192 2.5 1.732 2.5z" />
+                            <svg
+                              className="w-6 h-6 text-red-400"
+                              fill="none"
+                              viewBox="0 0 24 24"
+                              stroke="currentColor"
+                            >
+                              <path
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                strokeWidth={2}
+                                d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 16.5c-.77.833.192 2.5 1.732 2.5z"
+                              />
                             </svg>
                           </div>
-                          <h3 className="text-lg font-medium text-red-300">Błąd ładowania mapy</h3>
+                          <h3 className="text-lg font-medium text-red-300">
+                            Błąd ładowania mapy
+                          </h3>
                         </div>
                         <p className="text-red-400 mb-4">{error}</p>
-                        <button 
-                          onClick={() => typeof window !== 'undefined' && window.location.reload()}
+                        <button
+                          onClick={() =>
+                            typeof window !== 'undefined' && window.location.reload()
+                          }
                           className="w-full bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg font-medium transition-all"
                         >
                           Odśwież stronę
@@ -489,10 +535,7 @@ export default function MapaPage() {
                     </div>
                   )}
 
-                  <div 
-                    ref={mapContainerRef}
-                    className="w-full h-full"
-                  />
+                  <div ref={mapContainerRef} className="w-full h-full" />
                 </div>
               </div>
             </div>
@@ -504,7 +547,7 @@ export default function MapaPage() {
         .leaflet-popup-content {
           margin: 0 !important;
         }
-        
+
         .leaflet-popup-content-wrapper {
           border-radius: 12px !important;
           padding: 0 !important;
@@ -512,23 +555,23 @@ export default function MapaPage() {
           box-shadow: 0 10px 25px rgba(0, 0, 0, 0.5) !important;
           border: 1px solid #475569 !important;
         }
-        
+
         .leaflet-popup-tip {
           background: #1e293b !important;
           box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3) !important;
         }
-        
+
         .leaflet-popup-close-button {
           color: #94a3b8 !important;
           padding: 10px !important;
           font-size: 18px !important;
         }
-        
+
         .leaflet-popup-close-button:hover {
           color: #f8fafc !important;
           background: transparent !important;
         }
-        
+
         .leaflet-control-attribution {
           background: rgba(15, 23, 42, 0.8) !important;
           color: #94a3b8 !important;
@@ -536,7 +579,7 @@ export default function MapaPage() {
           padding: 4px 8px !important;
           border-radius: 4px !important;
         }
-        
+
         .leaflet-control-attribution a {
           color: #60a5fa !important;
         }
