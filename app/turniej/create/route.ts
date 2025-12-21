@@ -6,8 +6,8 @@ const urlRe = /^https?:\/\/\S+$/i
 const sheetColRe = /^[A-Za-z]$/
 const uuidRe = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 
-// Dozwolone warianty (muszą się zgadzać z frontendowym selectem + ewentualnym CHECK w DB)
-const ALLOWED_GAMES = new Set(['Rummikub Standard', 'Rummikub Twist', 'Qwirkle'])
+// ✅ Dozwolone wartości ENUM (muszą się zgadzać z public.game_enum)
+const ALLOWED_GAMES = new Set(['rummikub_standard', 'rummikub_twist', 'qwirkle'])
 
 export async function POST(req: NextRequest) {
   const origin = req.nextUrl.origin
@@ -16,8 +16,8 @@ export async function POST(req: NextRequest) {
   const {
     data: { user },
   } = await supabase.auth.getUser()
-  if (!user)
-    return NextResponse.redirect(new URL('/auth/signin', origin), { status: 303 })
+
+  if (!user) return NextResponse.redirect(new URL('/auth/signin', origin), { status: 303 })
 
   const { data: isAdmin } = await supabase.rpc('is_admin')
   if (!isAdmin) return NextResponse.redirect(new URL('/', origin), { status: 303 })
@@ -27,7 +27,7 @@ export async function POST(req: NextRequest) {
   // Tournament data
   const nazwa = String(fd.get('nazwa') || '').trim()
 
-  // NOWE: gra / wariant
+  // ✅ GRA / WARIANT
   const gra = String(fd.get('gra') || '').trim()
 
   const data_turnieju = String(fd.get('data_turnieju') || '').trim()
@@ -41,93 +41,66 @@ export async function POST(req: NextRequest) {
   const kolumna_nazwisk = kolumna_nazwisk_raw ? kolumna_nazwisk_raw.toUpperCase() : null
 
   const pierwszy_wiersz_z_nazwiskiem_raw = fd.get('pierwszy_wiersz_z_nazwiskiem')
-  const pierwszy_wiersz_z_nazwiskiem = pierwszy_wiersz_z_nazwiskiem_raw
-    ? Number(pierwszy_wiersz_z_nazwiskiem_raw)
-    : null
+  const pierwszy_wiersz_z_nazwiskiem =
+    pierwszy_wiersz_z_nazwiskiem_raw ? Number(pierwszy_wiersz_z_nazwiskiem_raw) : null
 
   const limit_graczy_raw = fd.get('limit_graczy')
   const limit_graczy = limit_graczy_raw ? Number(limit_graczy_raw) : null
 
-  // Location ID - this is the crucial field
+  // Location ID
   const miejsce_id = String(fd.get('miejsce_id') || '').trim()
 
   console.log('Form data received:', {
     nazwa,
-    gra, // NOWE
+    gra,
     data_turnieju,
     godzina_turnieju,
     miejsce_id,
     wszystkieFields: Array.from(fd.keys()),
   })
 
-  // Validations
-  if (!nazwa)
-    return NextResponse.redirect(new URL('/turniej/new?e=invalid_input', origin), {
-      status: 303,
-    })
-
-  // NOWE: walidacja gry
-  if (!gra) {
-    // możesz dodać nowy kod błędu w UI, ale żeby nie ruszać mapowania – używam invalid_input
-    return NextResponse.redirect(new URL('/turniej/new?e=invalid_input', origin), {
-      status: 303,
-    })
+  // ✅ Validations
+  if (!nazwa) {
+    return NextResponse.redirect(new URL('/turniej/new?e=invalid_input', origin), { status: 303 })
   }
-  if (!ALLOWED_GAMES.has(gra)) {
-    return NextResponse.redirect(new URL('/turniej/new?e=invalid_input', origin), {
-      status: 303,
-    })
+
+  // ✅ gra required + must match enum values
+  if (!gra || !ALLOWED_GAMES.has(gra)) {
+    return NextResponse.redirect(new URL('/turniej/new?e=game_required', origin), { status: 303 })
   }
 
   if (!data_turnieju || !godzina_turnieju) {
-    return NextResponse.redirect(new URL('/turniej/new?e=date_time_required', origin), {
-      status: 303,
-    })
+    return NextResponse.redirect(new URL('/turniej/new?e=date_time_required', origin), { status: 303 })
   }
 
-  // Validate that miejsce_id is provided and is a valid UUID
   if (!miejsce_id) {
-    console.error('miejsce_id is missing from form data')
-    return NextResponse.redirect(new URL('/turniej/new?e=location_required', origin), {
-      status: 303,
-    })
+    return NextResponse.redirect(new URL('/turniej/new?e=location_required', origin), { status: 303 })
   }
 
   if (!uuidRe.test(miejsce_id)) {
-    console.error('miejsce_id is not a valid UUID:', miejsce_id)
-    return NextResponse.redirect(new URL('/turniej/new?e=invalid_location_id', origin), {
-      status: 303,
-    })
+    return NextResponse.redirect(new URL('/turniej/new?e=invalid_location_id', origin), { status: 303 })
   }
 
   if (kolumna_nazwisk && !sheetColRe.test(kolumna_nazwisk)) {
-    return NextResponse.redirect(new URL('/turniej/new?e=sheet_col_invalid', origin), {
-      status: 303,
-    })
+    return NextResponse.redirect(new URL('/turniej/new?e=sheet_col_invalid', origin), { status: 303 })
   }
 
   if (
     pierwszy_wiersz_z_nazwiskiem !== null &&
     (!Number.isFinite(pierwszy_wiersz_z_nazwiskiem) || pierwszy_wiersz_z_nazwiskiem < 1)
   ) {
-    return NextResponse.redirect(new URL('/turniej/new?e=number_invalid', origin), {
-      status: 303,
-    })
+    return NextResponse.redirect(new URL('/turniej/new?e=number_invalid', origin), { status: 303 })
   }
 
   if (limit_graczy !== null && (!Number.isFinite(limit_graczy) || limit_graczy < 1)) {
-    return NextResponse.redirect(new URL('/turniej/new?e=number_invalid', origin), {
-      status: 303,
-    })
+    return NextResponse.redirect(new URL('/turniej/new?e=number_invalid', origin), { status: 303 })
   }
 
   if (gsheet_url && !urlRe.test(gsheet_url)) {
-    return NextResponse.redirect(new URL('/turniej/new?e=url_invalid', origin), {
-      status: 303,
-    })
+    return NextResponse.redirect(new URL('/turniej/new?e=url_invalid', origin), { status: 303 })
   }
 
-  // Verify that the location exists and get location details
+  // Verify location exists
   const { data: location, error: locationError } = await supabase
     .from('miejsce_turnieju')
     .select('id, nazwa, miasto')
@@ -136,14 +109,13 @@ export async function POST(req: NextRequest) {
 
   if (locationError || !location) {
     console.error('Location not found:', miejsce_id, locationError)
-    return NextResponse.redirect(new URL('/turniej/new?e=location_not_found', origin), {
-      status: 303,
-    })
+    return NextResponse.redirect(new URL('/turniej/new?e=location_not_found', origin), { status: 303 })
   }
 
+  // ✅ Payload (gra must be included)
   const payload = {
     nazwa,
-    gra, // <-- NOWE: zapis do bazy
+    gra, // ✅ TO BYŁO KLUCZOWE
     data_turnieju,
     godzina_turnieju,
     zakonczenie_turnieju,
@@ -161,21 +133,9 @@ export async function POST(req: NextRequest) {
   const { error } = await supabase.from('turniej').insert(payload)
   if (error) {
     console.error('insert turniej error', error)
-    return NextResponse.redirect(new URL('/turniej/new?e=database_error', origin), {
-      status: 303,
-    })
+    return NextResponse.redirect(new URL('/turniej/new?e=database_error', origin), { status: 303 })
   }
 
-  // Przekierowanie z danymi do modala / strony
-  const params = new URLSearchParams({
-    ok: '1',
-    nazwa: encodeURIComponent(nazwa),
-    gra: encodeURIComponent(gra), // <-- NOWE (opcjonalnie do UI)
-    data: encodeURIComponent(data_turnieju),
-    miejsce: encodeURIComponent(`${location.nazwa} - ${location.miasto}`),
-  })
-
-  return NextResponse.redirect(new URL(`/turniej/new?${params.toString()}`, origin), {
-    status: 303,
-  })
+  // success
+  return NextResponse.redirect(new URL('/admin?ok=1', origin), { status: 303 })
 }

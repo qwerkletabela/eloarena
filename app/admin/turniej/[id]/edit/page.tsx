@@ -2,238 +2,305 @@
 import { redirect } from 'next/navigation'
 import { createSupabaseServer } from '@/lib/supabase/server'
 import AutoHide from '@/components/AutoHide'
-import { MapPin, Clock, CalendarDays, Trophy } from 'lucide-react'
+import {
+  MapPin,
+  Clock,
+  CalendarDays,
+  Trophy,
+  Link as LinkIcon,
+  Sheet as SheetIcon,
+  Hash,
+  Users,
+} from 'lucide-react'
 
 export const dynamic = 'force-dynamic'
 export const revalidate = 0
 
 interface EditTurniejPageProps {
-  params: Promise<{
-    id: string
-  }>
+  params: Promise<{ id: string }>
   searchParams?: Promise<{ [key: string]: string | string[] | undefined }>
 }
+
+type MiejsceRow = {
+  id: string
+  nazwa: string
+  miasto: string
+  wojewodztwo: string | null
+}
+
+/** value MUSI odpowiadać temu, co jest w kolumnie `gra` (enum) */
+const GAME_VARIANTS = [
+  { value: 'rummikub_standard', label: 'Rummikub – Standard' },
+  { value: 'rummikub_twist', label: 'Rummikub – Twist' },
+  { value: 'qwirkle', label: 'Qwirkle' },
+] as const
 
 export default async function EditTurniejPage(props: EditTurniejPageProps) {
   const params = await props.params
   const searchParams = await props.searchParams
   const supabase = await createSupabaseServer()
 
-  // Sprawdź autoryzację
-  const { data: { user } } = await supabase.auth.getUser()
+  // 🔐 AUTORYZACJA
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
   if (!user) redirect('/auth/signin')
 
   const { data: isAdmin } = await supabase.rpc('is_admin')
   if (!isAdmin) redirect('/')
 
-  // Pobierz istniejące miejsca turnieju
+  // 📍 MIEJSCA
   const { data: miejsca } = await supabase
     .from('miejsce_turnieju')
-    .select('id, nazwa, miasto, wojewodztwo, adres')
+    .select('id, nazwa, miasto, wojewodztwo')
     .order('nazwa', { ascending: true })
 
-  // Pobierz turniej do edycji
+  // 🏆 TURNIEJ
   const { data: turniej } = await supabase
     .from('turniej')
     .select('*')
     .eq('id', params.id)
     .single()
 
-  if (!turniej) {
-    redirect('/admin?error=turniej_not_found')
-  }
+  if (!turniej) redirect('/admin?error=turniej_not_found')
 
-  // Obsługa komunikatów
+  // komunikaty błędów (pasują do route.ts)
   const errorMessages: Record<string, string> = {
     invalid_input: 'Wypełnij wszystkie wymagane pola',
-    miejsce_required: 'Wybierz miejsce turnieju',
-    sheet_col_invalid: 'Kolumna nazwisk musi być pojedynczą literą (A-Z)',
+    date_time_required: 'Podaj datę i godzinę wydarzenia',
+    invalid_game: 'Wybrano nieprawidłową grę / wariant',
+    invalid_location_id: 'Nieprawidłowy identyfikator miejsca',
+    place_not_found: 'Wybrane miejsce nie istnieje',
+    sheet_col_invalid: 'Kolumna nazwisk musi być pojedynczą literą (A–Z)',
     number_invalid: 'Wprowadź poprawną liczbę',
     url_invalid: 'Wprowadź poprawny URL',
     save_failed: 'Zapis nie powiódł się. Spróbuj ponownie.',
-    place_not_found: 'Wybrane miejsce nie istnieje',
+    server_error: 'Błąd serwera. Spróbuj ponownie.',
+    invalid_id: 'Nieprawidłowy identyfikator turnieju.',
+    game_required: 'Wybierz grę / wariant',
+    gra_locked: 'Nie można zmienić gry po dodaniu pierwszej partii',
   }
 
-  const error = searchParams?.e as string
-  const success = searchParams?.ok as string
+  const error = (searchParams?.e as string) || ''
+  const success = (searchParams?.ok as string) || ''
+
+  const currentGame: string = (turniej as any).gra || ''
+  const currentGameLabel =
+    GAME_VARIANTS.find((v) => v.value === currentGame)?.label || '— nie ustawiono —'
 
   return (
-    <main className="flex min-h-[calc(100vh-4rem)] items-start justify-center px-8 py-16">
-      <div className="w-full max-w-2xl rounded-2xl bg-slate-800/95 border border-slate-700 shadow-[0_14px_40px_rgba(0,0,0,0.8)] p-6 space-y-6">
-        <h1 className="text-4xl font-bold text-sky-50 mb-2 text-center">Edytuj turniej</h1>
+    <main className="flex min-h-[calc(100vh-4rem)] items-start justify-center px-6 sm:px-8 py-12 sm:py-16">
+      <div className="w-full max-w-3xl rounded-2xl bg-slate-800/95 border border-slate-700 shadow-[0_14px_40px_rgba(0,0,0,0.8)] p-6 space-y-6">
+        <h1 className="text-4xl font-bold text-sky-50 text-center">Edytuj turniej</h1>
 
-        {/* Komunikaty */}
         {error && (
           <div className="rounded-md border border-red-400/50 bg-red-500/10 px-4 py-3 text-sm text-red-200">
             ❌ {errorMessages[error] || 'Wystąpił nieznany błąd'}
           </div>
         )}
-        
+
         {success && (
           <AutoHide ms={5000}>
             <div className="rounded-md border border-green-400/50 bg-green-500/10 px-4 py-3 text-sm text-green-200">
-              ✅ Turniej został zaktualizowany pomyślnie!
+              ✅ Turniej został zaktualizowany
             </div>
           </AutoHide>
         )}
 
-        <form action={`/admin/turniej/${params.id}/update`} method="post" className="space-y-5">
-          {/* Nazwa turnieju */}
+        <form action={`/admin/turniej/${params.id}/update`} method="post" className="space-y-6">
+          {/* NAZWA */}
           <div>
-            <label className="flex items-center gap-1.5 text-sm font-medium text-sky-100">
-              <Trophy size={18} /><span>Nazwa turnieju:</span>
+            <label className="flex items-center gap-2 text-sm text-sky-100">
+              <Trophy size={18} /> Nazwa turnieju
             </label>
-            <input 
-              name="nazwa" 
-              required 
-              defaultValue={turniej.nazwa}
-              className="mt-1 w-full rounded-2xl border border-slate-600 bg-slate-900/80 px-3 py-2 text-sky-100 placeholder:text-slate-500 focus:border-sky-500 focus:ring-1 focus:ring-sky-500" 
-              placeholder="np. ELO Arena Open" 
+            <input
+              name="nazwa"
+              required
+              defaultValue={(turniej as any).nazwa ?? ''}
+              className="mt-1 w-full rounded-xl border border-slate-600 bg-slate-900 px-3 py-2 text-sky-100"
             />
           </div>
 
-          {/* Data i godziny */}
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-            <div>
-              <label className="flex items-center gap-1.5 text-sm font-medium text-sky-100">
-                <CalendarDays size={18} /><span>Data turnieju:</span>
-              </label>
-              <input 
-                type="date" 
-                name="data_turnieju" 
-                required 
-                defaultValue={turniej.data_turnieju || ''}
-                className="mt-1 w-full rounded-2xl border border-slate-600 bg-slate-900/80 px-3 py-2 text-sky-100 focus:border-sky-500 focus:ring-1 focus:ring-sky-500" 
-              />
-            </div>
-            <div>
-              <label className="flex items-center gap-1.5 text-sm font-medium text-sky-100">
-                <Clock size={18} /><span>Godzina rozpoczęcia:</span>
-              </label>
-              <input 
-                type="time" 
-                name="godzina_turnieju" 
-                required 
-                defaultValue={turniej.godzina_turnieju || ''}
-                className="mt-1 w-full rounded-2xl border border-slate-600 bg-slate-900/80 px-3 py-2 text-sky-100 focus:border-sky-500 focus:ring-1 focus:ring-sky-500" 
-              />
-            </div>
-            <div>
-              <label className="flex items-center gap-1.5 text-sm font-medium text-sky-100">
-                <Clock size={18} /><span>Godzina zakończenia: *</span>
-              </label>
-              <input 
-                type="time" 
-                name="zakonczenie_turnieju" 
-                defaultValue={turniej.zakonczenie_turnieju || ''}
-                className="mt-1 w-full rounded-2xl border border-slate-600 bg-slate-900/80 px-3 py-2 text-sky-100 focus:border-sky-500 focus:ring-1 focus:ring-sky-500" 
-              />
-            </div>
-          </div>
-
-          {/* Miejsce turnieju */}
+          {/* GRA / WARIANT */}
           <div>
-            <label className="flex items-center gap-1.5 text-sm font-medium text-sky-100">
-              <MapPin size={18} /><span>Miejsce turnieju *</span>
+            <label className="flex items-center gap-2 text-sm text-sky-100">
+              <Trophy size={18} /> Gra / wariant
             </label>
-            <select 
-              name="miejsce_id" 
+
+            <div className="mt-1 rounded-xl border border-slate-600 bg-slate-900/60 px-3 py-2 text-sky-100">
+              <span className="text-slate-400 text-sm mr-2">Aktualnie:</span>
+              <span className="font-semibold">{currentGameLabel}</span>
+              <span className="ml-2 text-xs text-slate-400">({currentGame || 'brak'})</span>
+            </div>
+
+            <select
+              name="gra"
               required
-              defaultValue={turniej.miejsce_id || ''}
-              className="mt-1 w-full rounded-2xl border border-slate-600 bg-slate-900/80 px-3 py-2 text-sky-100 focus:border-sky-500 focus:ring-1 focus:ring-sky-500"
+              defaultValue={currentGame}
+              className="mt-2 w-full rounded-xl border border-slate-600 bg-slate-900 px-3 py-2 text-sky-100"
             >
               <option value="">— wybierz z listy —</option>
-              {miejsca?.map((miejsce) => (
-                <option key={miejsce.id} value={miejsce.id}>
-                  {miejsce.nazwa} - {miejsce.miasto}
-                  {miejsce.wojewodztwo && `, ${miejsce.wojewodztwo}`}
+              {GAME_VARIANTS.map((opt) => (
+                <option key={opt.value} value={opt.value}>
+                  {opt.label}
                 </option>
               ))}
             </select>
-            <div className="mt-2 flex justify-end items-center">
-              <a 
-                href="/admin/miejsca/new" 
-                className="text-xs text-sky-400 hover:text-sky-300 hover:underline"
-                target="_blank"
-                rel="noopener noreferrer"
-              >
-                Dodaj nowe miejsce →
-              </a>
+
+            <p className="mt-1 text-xs text-slate-400">
+              Uwaga: po dodaniu pierwszej partii zmiana gry może być zablokowana.
+            </p>
+          </div>
+
+          {/* DATA / GODZINY */}
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <div>
+              <label className="flex items-center gap-2 text-sm text-sky-100">
+                <CalendarDays size={18} /> Data
+              </label>
+              <input
+                type="date"
+                name="data_turnieju"
+                required
+                defaultValue={(turniej as any).data_turnieju || ''}
+                className="mt-1 w-full rounded-xl border border-slate-600 bg-slate-900 px-3 py-2 text-sky-100"
+              />
+            </div>
+
+            <div>
+              <label className="flex items-center gap-2 text-sm text-sky-100">
+                <Clock size={18} /> Start
+              </label>
+              <input
+                type="time"
+                name="godzina_turnieju"
+                required
+                defaultValue={(turniej as any).godzina_turnieju || ''}
+                className="mt-1 w-full rounded-xl border border-slate-600 bg-slate-900 px-3 py-2 text-sky-100"
+              />
+            </div>
+
+            <div>
+              <label className="flex items-center gap-2 text-sm text-sky-100">
+                <Clock size={18} /> Koniec
+              </label>
+              <input
+                type="time"
+                name="zakonczenie_turnieju"
+                defaultValue={(turniej as any).zakonczenie_turnieju || ''}
+                className="mt-1 w-full rounded-xl border border-slate-600 bg-slate-900 px-3 py-2 text-sky-100"
+              />
             </div>
           </div>
 
-          {/* Arkusz Google */}
+          {/* LIMIT GRACZY */}
           <div>
-            <label className="block text-sm font-medium text-sky-100">Link do arkusza Google (opcjonalnie)</label>
-            <input 
-              name="gsheet_url" 
-              defaultValue={turniej.gsheet_url || ''}
-              className="mt-1 w-full rounded-2xl border border-slate-600 bg-slate-900/80 px-3 py-2 text-sky-100 placeholder:text-slate-500 focus:border-sky-500 focus:ring-1 focus:ring-sky-500" 
-              placeholder="https://..." 
+            <label className="flex items-center gap-2 text-sm text-sky-100">
+              <Users size={18} /> Limit graczy (opcjonalnie)
+            </label>
+            <input
+              type="number"
+              name="limit_graczy"
+              min={1}
+              placeholder="np. 32"
+              defaultValue={(turniej as any).limit_graczy ?? ''}
+              className="mt-1 w-full rounded-xl border border-slate-600 bg-slate-900 px-3 py-2 text-sky-100"
             />
+            <p className="mt-1 text-xs text-slate-400">Puste = brak limitu.</p>
           </div>
 
-          {/* Szczegóły arkusza */}
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+          {/* MIEJSCE */}
+          <div>
+            <label className="flex items-center gap-2 text-sm text-sky-100">
+              <MapPin size={18} /> Miejsce (opcjonalnie)
+            </label>
+            <select
+              name="miejsce_id"
+              defaultValue={(turniej as any).miejsce_id || ''}
+              className="mt-1 w-full rounded-xl border border-slate-600 bg-slate-900 px-3 py-2 text-sky-100"
+            >
+              <option value="">— brak / nie ustawiono —</option>
+              {(miejsca as MiejsceRow[] | null)?.map((m) => (
+                <option key={m.id} value={m.id}>
+                  {m.nazwa} – {m.miasto}
+                  {m.wojewodztwo && `, ${m.wojewodztwo}`}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          {/* GOOGLE SHEETS */}
+          <div className="rounded-2xl border border-slate-700 bg-slate-900/30 p-4 space-y-4">
+            <div className="flex items-center gap-2 text-sky-100">
+              <SheetIcon size={18} />
+              <h2 className="font-semibold">Import z Google Sheets (opcjonalnie)</h2>
+            </div>
+
             <div>
-              <label className="block text-sm font-medium text-sky-100">Nazwa karty (opcjonalnie)</label>
-              <input 
-                name="arkusz_nazwa" 
-                defaultValue={turniej.arkusz_nazwa || ''}
-                className="mt-1 w-full rounded-2xl border border-slate-600 bg-slate-900/80 px-3 py-2 text-sky-100 placeholder:text-slate-500 focus:border-sky-500 focus:ring-1 focus:ring-sky-500" 
-                placeholder="" 
+              <label className="flex items-center gap-2 text-sm text-sky-100">
+                <LinkIcon size={18} /> Link do arkusza (gsheet_url)
+              </label>
+              <input
+                name="gsheet_url"
+                placeholder="https://..."
+                defaultValue={(turniej as any).gsheet_url || ''}
+                className="mt-1 w-full rounded-xl border border-slate-600 bg-slate-900 px-3 py-2 text-sky-100"
               />
             </div>
-            <div>
-              <label className="block text-sm font-medium text-sky-100">Kolumna z nazwiskami</label>
-              <input 
-                name="kolumna_nazwisk" 
-                defaultValue={turniej.kolumna_nazwisk || ''}
-                className="mt-1 w-full rounded-2xl border border-slate-600 bg-slate-900/80 px-3 py-2 text-sky-100 placeholder:text-slate-500 focus:border-sky-500 focus:ring-1 focus:ring-sky-500" 
-                placeholder="" 
-                maxLength={2} 
-              />
-              <p className="mt-1 text-xs text-slate-400">Jedna litera A-Z.</p>
+
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+              <div className="sm:col-span-2">
+                <label className="flex items-center gap-2 text-sm text-sky-100">
+                  <SheetIcon size={18} /> Nazwa arkusza (arkusz_nazwa)
+                </label>
+                <input
+                  name="arkusz_nazwa"
+                  placeholder="np. Sheet1"
+                  defaultValue={(turniej as any).arkusz_nazwa || ''}
+                  className="mt-1 w-full rounded-xl border border-slate-600 bg-slate-900 px-3 py-2 text-sky-100"
+                />
+              </div>
+
+              <div>
+                <label className="flex items-center gap-2 text-sm text-sky-100">
+                  <Hash size={18} /> Kolumna nazwisk (A–Z)
+                </label>
+                <input
+                  name="kolumna_nazwisk"
+                  placeholder="np. A"
+                  maxLength={1}
+                  defaultValue={(turniej as any).kolumna_nazwisk || ''}
+                  className="mt-1 w-full rounded-xl border border-slate-600 bg-slate-900 px-3 py-2 text-sky-100 uppercase"
+                />
+              </div>
             </div>
+
             <div>
-              <label className="block text-sm font-medium text-sky-100">Pierwszy wiersz z nazwiskiem</label>
-              <input 
-                //type="number" 
-                name="pierwszy_wiersz_z_nazwiskiem" 
-                min={1} 
-                defaultValue={turniej.pierwszy_wiersz_z_nazwiskiem || ''}
-                className="mt-1 w-full rounded-2xl border border-slate-600 bg-slate-900/80 px-3 py-2 text-sky-100 focus:border-sky-500 focus:ring-1 focus:ring-sky-500" 
-                placeholder=""
+              <label className="flex items-center gap-2 text-sm text-sky-100">
+                <Hash size={18} /> Pierwszy wiersz z nazwiskiem
+              </label>
+              <input
+                type="number"
+                name="pierwszy_wiersz_z_nazwiskiem"
+                min={1}
+                placeholder="np. 2"
+                defaultValue={(turniej as any).pierwszy_wiersz_z_nazwiskiem ?? ''}
+                className="mt-1 w-full rounded-xl border border-slate-600 bg-slate-900 px-3 py-2 text-sky-100"
               />
             </div>
           </div>
 
-          {/* Limit graczy */}
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-            <div>
-              <label className="block text-sm font-medium text-sky-100">Limit graczy (opcjonalnie)</label>
-              <input 
-                //type="number" 
-                name="limit_graczy" 
-                min={1} 
-                defaultValue={turniej.limit_graczy || ''}
-                className="mt-1 w-full rounded-2xl border border-slate-600 bg-slate-900/80 px-3 py-2 text-sky-100 focus:border-sky-500 focus:ring-1 focus:ring-sky-500" 
-                placeholder="Bez limitu"
-              />
-            </div>
-          </div>
-
-          {/* Przyciski akcji */}
-          <div className="flex gap-2 pt-4">
-            <button 
-              className="w-full rounded-full bg-gradient-to-r from-sky-500 to-sky-600 px-4 py-3 text-lg font-semibold text-white shadow-[0_10px_25px_rgba(15,23,42,0.9)] transition-all hover:from-sky-400 hover:to-sky-500 hover:shadow-[0_14px_35px_rgba(15,23,42,1)] active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:from-sky-500 disabled:hover:to-sky-600 disabled:hover:shadow-[0_10px_25px_rgba(15,23,42,0.9)]" 
+          {/* AKCJE */}
+          <div className="flex gap-3 pt-2">
+            <button
               type="submit"
+              className="w-full rounded-full bg-sky-600 hover:bg-sky-500 py-3 text-white font-semibold"
             >
               Zapisz zmiany
             </button>
-            <a 
-              href="/admin" 
-              className="w-full rounded-full bg-gradient-to-r from-red-500 to-red-600 px-4 py-3 text-lg font-semibold text-white shadow-[0_10px_25px_rgba(15,23,42,0.9)] transition-all hover:from-red-400 hover:to-red-500 hover:shadow-[0_14px_35px_rgba(15,23,42,1)] active:scale-[0.98] text-center"
+            <a
+              href="/admin"
+              className="w-full rounded-full bg-red-600 hover:bg-red-500 py-3 text-white font-semibold text-center"
             >
               Anuluj
             </a>

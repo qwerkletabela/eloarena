@@ -4,7 +4,15 @@
 import { redirect } from 'next/navigation'
 import { createSupabaseBrowser } from '@/lib/supabase/browser'
 import { useEffect, useState } from 'react'
-import { MapPin, Clock, CalendarDays, Trophy, Dices } from 'lucide-react'
+import {
+  MapPin,
+  Clock,
+  CalendarDays,
+  Trophy,
+  Dices,
+  ChevronDown,
+  ChevronUp,
+} from 'lucide-react'
 import AutoHide from '@/components/AutoHide'
 import AddTurniej from '@/components/AddTurniej'
 
@@ -18,7 +26,7 @@ interface Miejsce {
 
 interface FormData {
   nazwa: string
-  gra: string // <-- NOWE
+  gra: string
   data_turnieju: string
   godzina_turnieju: string
   zakonczenie_turnieju: string
@@ -34,9 +42,10 @@ export default function NewTurniejPage() {
   const [miejsca, setMiejsca] = useState<Miejsce[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [showConfirmModal, setShowConfirmModal] = useState(false)
+  const [showMoreDetails, setShowMoreDetails] = useState(false) // ✅ NOWE
   const [formData, setFormData] = useState<FormData>({
     nazwa: '',
-    gra: '', // <-- NOWE
+    gra: '',
     data_turnieju: '',
     godzina_turnieju: '',
     zakonczenie_turnieju: '',
@@ -53,7 +62,6 @@ export default function NewTurniejPage() {
   const supabase = createSupabaseBrowser()
 
   useEffect(() => {
-    // Pobierz miejsca
     const fetchMiejsca = async () => {
       try {
         const {
@@ -103,10 +111,9 @@ export default function NewTurniejPage() {
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
 
-    // Walidacja pól wymaganych
     if (
       !formData.nazwa ||
-      !formData.gra || // <-- NOWE
+      !formData.gra ||
       !formData.data_turnieju ||
       !formData.godzina_turnieju ||
       !formData.miejsce_id
@@ -124,7 +131,7 @@ export default function NewTurniejPage() {
     try {
       const formDataToSend = new FormData()
       formDataToSend.append('nazwa', formData.nazwa)
-      formDataToSend.append('gra', formData.gra) // <-- NOWE
+      formDataToSend.append('gra', formData.gra)
       formDataToSend.append('data_turnieju', formData.data_turnieju)
       formDataToSend.append('godzina_turnieju', formData.godzina_turnieju)
       formDataToSend.append('zakonczenie_turnieju', formData.zakonczenie_turnieju)
@@ -144,7 +151,6 @@ export default function NewTurniejPage() {
       })
 
       if (response.ok) {
-        // Przekieruj na stronę admina z komunikatem sukcesu
         window.location.href = '/admin?ok=1'
       } else {
         const url = new URL(response.url)
@@ -193,7 +199,7 @@ export default function NewTurniejPage() {
   return (
     <>
       <main className="flex min-h-[calc(100vh-4rem)] items-start justify-center px-8 py-16">
-        <div className="w-full max-w-2xl rounded-2xl bg-slate-800/95 border border-slate-700 shadow-[0_14px_40px_rgba(0,0,0,0.8)] p-6 space-y-6 text-c">
+        <div className="w-full max-w-2xl rounded-2xl bg-slate-800/95 border border-slate-700 shadow-[0_14px_40px_rgba(0,0,0,0.8)] p-6 space-y-6">
           <h1 className="text-4xl font-bold text-sky-50 mb-2 text-center">
             Dodaj turniej
           </h1>
@@ -223,7 +229,7 @@ export default function NewTurniejPage() {
               />
             </div>
 
-            {/* Gra / wariant (NOWE) */}
+            {/* Gra / wariant */}
             <div>
               <label className="flex items-center gap-1.5 text-sm font-medium text-sky-100">
                 <Dices size={18} />
@@ -238,15 +244,15 @@ export default function NewTurniejPage() {
                 className="mt-1 w-full rounded-2xl border border-slate-600 bg-slate-900/80 px-3 py-2 text-sky-100 focus:border-sky-500 focus:ring-1 focus:ring-sky-500"
               >
                 <option value="">— wybierz z listy —</option>
-                <option value="Rummikub Standard">Rummikub Standard</option>
-                <option value="Rummikub Twist">Rummikub Twist</option>
-                <option value="Qwirkle">Qwirkle</option>
+                <option value="rummikub_standard">Rummikub – Standard</option>
+                <option value="rummikub_twist">Rummikub – Twist</option>
+                <option value="qwirkle">Qwirkle</option>
               </select>
             </div>
 
             {/* Data i godziny */}
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-              <div className="">
+              <div>
                 <label className="flex items-center gap-1.5 text-sm font-medium text-sky-100">
                   <CalendarDays size={18} />
                   <span>Data turnieju:</span>
@@ -292,7 +298,7 @@ export default function NewTurniejPage() {
               </div>
             </div>
 
-            {/* Miejsce turnieju */}
+            {/* ✅ Miejsce turnieju + link poniżej */}
             <div>
               <label className="flex items-center gap-1.5 text-sm font-medium text-sky-100">
                 <MapPin size={18} />
@@ -327,84 +333,106 @@ export default function NewTurniejPage() {
               </div>
             </div>
 
-            {/* Arkusz Google */}
-            <div>
-              <label className="block text-sm font-medium text-sky-100">
-                Link do arkusza Google (opcjonalnie)
-              </label>
-              <input
-                name="gsheet_url"
-                value={formData.gsheet_url}
-                onChange={handleInputChange}
-                className="mt-1 w-full rounded-2xl border border-slate-600 bg-slate-900/80 px-3 py-2 text-sky-100 placeholder:text-slate-500 focus:border-sky-500 focus:ring-1 focus:ring-sky-500"
-                placeholder="https://..."
-              />
-            </div>
+            {/* ✅ Więcej szczegółów (accordion) */}
+            <div className="pt-2">
+              <button
+                type="button"
+                onClick={() => setShowMoreDetails((v) => !v)}
+                className="w-full flex items-center justify-between rounded-2xl border border-slate-700 bg-slate-900/50 px-4 py-3 text-sky-100 hover:bg-slate-900/70 transition"
+              >
+                <span className="text-sm font-semibold">Więcej szczegółów</span>
+                {showMoreDetails ? (
+                  <ChevronUp className="h-5 w-5 text-slate-300" />
+                ) : (
+                  <ChevronDown className="h-5 w-5 text-slate-300" />
+                )}
+              </button>
 
-            {/* Szczegóły arkusza */}
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-              <div>
-                <label className="block text-sm font-medium text-sky-100">
-                  Nazwa karty (opcjonalnie)
-                </label>
-                <input
-                  name="arkusz_nazwa"
-                  value={formData.arkusz_nazwa}
-                  onChange={handleInputChange}
-                  className="mt-1 w-full rounded-2xl border border-slate-600 bg-slate-900/80 px-3 py-2 text-sky-100 placeholder:text-slate-500 focus:border-sky-500 focus:ring-1 focus:ring-sky-500"
-                  placeholder=""
-                />
-              </div>
+              {showMoreDetails && (
+                <div className="mt-3 space-y-5 rounded-2xl border border-slate-700 bg-slate-900/30 p-4">
+                  {/* Arkusz Google */}
+                  <div>
+                    <label className="block text-sm font-medium text-sky-100">
+                      Link do arkusza Google (opcjonalnie)
+                    </label>
+                    <input
+                      name="gsheet_url"
+                      value={formData.gsheet_url}
+                      onChange={handleInputChange}
+                      className="mt-1 w-full rounded-2xl border border-slate-600 bg-slate-900/80 px-3 py-2 text-sky-100 placeholder:text-slate-500 focus:border-sky-500 focus:ring-1 focus:ring-sky-500"
+                      placeholder="https://..."
+                    />
+                  </div>
 
-              <div>
-                <label className="block text-sm font-medium text-sky-100">
-                  Kolumna z nazwiskami
-                </label>
-                <input
-                  name="kolumna_nazwisk"
-                  value={formData.kolumna_nazwisk}
-                  onChange={handleInputChange}
-                  className="mt-1 w-full rounded-2xl border border-slate-600 bg-slate-900/80 px-3 py-2 text-sky-100 placeholder:text-slate-500 focus:border-sky-500 focus:ring-1 focus:ring-sky-500"
-                  placeholder=""
-                  maxLength={2}
-                />
-                <p className="mt-1 text-xs text-slate-400">Jedna litera A-Z.</p>
-              </div>
+                  {/* Szczegóły arkusza */}
+                  <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+                    <div>
+                      <label className="block text-sm font-medium text-sky-100">
+                        Nazwa karty (opcjonalnie)
+                      </label>
+                      <input
+                        name="arkusz_nazwa"
+                        value={formData.arkusz_nazwa}
+                        onChange={handleInputChange}
+                        className="mt-1 w-full rounded-2xl border border-slate-600 bg-slate-900/80 px-3 py-2 text-sky-100 placeholder:text-slate-500 focus:border-sky-500 focus:ring-1 focus:ring-sky-500"
+                        placeholder=""
+                      />
+                    </div>
 
-              <div>
-                <label className="block text-sm font-medium text-sky-100">
-                  Pierwszy wiersz z nazwiskiem
-                </label>
-                <input
-                  name="pierwszy_wiersz_z_nazwiskiem"
-                  min={1}
-                  value={formData.pierwszy_wiersz_z_nazwiskiem}
-                  onChange={handleInputChange}
-                  className="mt-1 w-full rounded-2xl border border-slate-600 bg-slate-900/80 px-3 py-2 text-sky-100 focus:border-sky-500 focus:ring-1 focus:ring-sky-500"
-                />
-              </div>
-            </div>
+                    <div>
+                      <label className="block text-sm font-medium text-sky-100">
+                        Kolumna z nazwiskami
+                      </label>
+                      <input
+                        name="kolumna_nazwisk"
+                        value={formData.kolumna_nazwisk}
+                        onChange={handleInputChange}
+                        className="mt-1 w-full rounded-2xl border border-slate-600 bg-slate-900/80 px-3 py-2 text-sky-100 placeholder:text-slate-500 focus:border-sky-500 focus:ring-1 focus:ring-sky-500"
+                        placeholder=""
+                        maxLength={2}
+                      />
+                      <p className="mt-1 text-xs text-slate-400">
+                        Jedna litera A-Z.
+                      </p>
+                    </div>
 
-            {/* Limit graczy */}
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-              <div>
-                <label className="block text-sm font-medium text-sky-100">
-                  Limit graczy (opcjonalnie)
-                </label>
-                <input
-                  name="limit_graczy"
-                  min={1}
-                  value={formData.limit_graczy}
-                  onChange={handleInputChange}
-                  className="mt-1 w-full rounded-2xl border border-slate-600 bg-slate-900/80 px-3 py-2 text-sky-100 focus:border-sky-500 focus:ring-1 focus:ring-sky-500"
-                />
-              </div>
+                    <div>
+                      <label className="block text-sm font-medium text-sky-100">
+                        Pierwszy wiersz z nazwiskiem
+                      </label>
+                      <input
+                        name="pierwszy_wiersz_z_nazwiskiem"
+                        min={1}
+                        value={formData.pierwszy_wiersz_z_nazwiskiem}
+                        onChange={handleInputChange}
+                        className="mt-1 w-full rounded-2xl border border-slate-600 bg-slate-900/80 px-3 py-2 text-sky-100 focus:border-sky-500 focus:ring-1 focus:ring-sky-500"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Limit graczy */}
+                  <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                    <div>
+                      <label className="block text-sm font-medium text-sky-100">
+                        Limit graczy (opcjonalnie)
+                      </label>
+                      <input
+                        name="limit_graczy"
+                        min={1}
+                        value={formData.limit_graczy}
+                        onChange={handleInputChange}
+                        className="mt-1 w-full rounded-2xl border border-slate-600 bg-slate-900/80 px-3 py-2 text-sky-100 focus:border-sky-500 focus:ring-1 focus:ring-sky-500"
+                      />
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
 
             {/* Przyciski akcji */}
             <div className="flex gap-2 pt-4">
               <button
-                className="w-full rounded-full bg-gradient-to-r from-sky-500 to-sky-600 px-4 py-3 text-lg font-semibold text-white shadow-[0_10px_25px_rgba(15,23,42,0.9)] transition-all hover:from-sky-400 hover:to-sky-500 hover:shadow-[0_14px_35px_rgba(15,23,42,1)] active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:from-sky-500 disabled:hover:to-sky-600 disabled:hover:shadow-[0_10px_25px_rgba(15,23,42,0.9)]"
+                className="w-full rounded-full bg-gradient-to-r from-sky-500 to-sky-600 px-4 py-3 text-lg font-semibold text-white shadow-[0_10px_25px_rgba(15,23,42,0.9)] transition-all hover:from-sky-400 hover:to-sky-500 hover:shadow-[0_14px_35px_rgba(15,23,42,1)] active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed"
                 type="submit"
                 disabled={isSubmitting}
               >
@@ -422,14 +450,13 @@ export default function NewTurniejPage() {
         </div>
       </main>
 
-      {/* Modal potwierdzenia - pokazuje się PRZED zapisem do bazy */}
       <AddTurniej
         isOpen={showConfirmModal}
         onClose={() => setShowConfirmModal(false)}
         onConfirm={handleConfirm}
         isSubmitting={isSubmitting}
         nazwa={formData.nazwa}
-        gra={formData.gra} // <-- NOWE (musi być też w komponencie AddTurniej)
+        gra={formData.gra}
         data={formData.data_turnieju}
         miejsce={getMiejsceNazwa()}
       />
