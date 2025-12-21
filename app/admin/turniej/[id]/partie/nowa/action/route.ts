@@ -1,35 +1,65 @@
 // elo-arena/app/admin/turniej/[id]/partie/nowa/action/route.ts
 import { createSupabaseServer } from '@/lib/supabase/server'
-import { calculateEloChanges, validatePartia } from '@/lib/eloCalculator'
 import { revalidatePath } from 'next/cache'
 
 interface RequestBody {
   turniej_id: string
   numer_partii_start: number
   liczba_partii: number
-  gracze: string[]
+  gracze: string[] // 2-4 graczy, w stałej kolejności
   partie: Array<{
-    duzyPunkt: string
-    malePunkty: number[]
+    duzyPunkt: string // id zwycięzcy (musi być jednym z gracze[])
+    malePunkty: Array<number | null> // opcjonalne, mogą być null
   }>
 }
 
-interface ZmianaElo {
-  gracz_id: string
-  imie: string
-  nazwisko: string
-  elo_przed: number
-  elo_po: number
-  zmiana_elo: number
-  male_punkty: number
-  duzy_punkt: boolean
+function validateBasic(body: RequestBody) {
+  const errors: string[] = []
+
+  if (!body.turniej_id) errors.push('Brak turniej_id')
+  if (!Number.isFinite(body.numer_partii_start) || body.numer_partii_start < 1)
+    errors.push('Nieprawidłowy numer_partii_start')
+  if (!Number.isFinite(body.liczba_partii) || body.liczba_partii < 1 || body.liczba_partii > 10)
+    errors.push('Nieprawidłowa liczba_partii (1-10)')
+
+  if (!body.gracze || body.gracze.length < 2 || body.gracze.length > 4)
+    errors.push('Nieprawidłowa liczba graczy (2-4)')
+
+  // brak duplikatów graczy
+  if (body.gracze) {
+    const set = new Set(body.gracze)
+    if (set.size !== body.gracze.length) errors.push('Gracze nie mogą się powtarzać')
+  }
+
+  if (!body.partie || body.partie.length !== body.liczba_partii)
+    errors.push('Nieprawidłowa liczba partii')
+
+  // walidacja każdej partii: zwycięzca musi być wśród gracze[]
+  body.partie?.forEach((p, idx) => {
+    if (!p.duzyPunkt) errors.push(`Partia ${idx + 1}: nie wybrano zwycięzcy`)
+    if (p.duzyPunkt && !body.gracze.includes(p.duzyPunkt))
+      errors.push(`Partia ${idx + 1}: zwycięzca nie jest wśród wybranych graczy`)
+
+    // małe punkty: jeśli wpisane, muszą być liczbą
+    if (p.malePunkty && Array.isArray(p.malePunkty)) {
+      p.malePunkty.forEach((val, i) => {
+        if (val === null || val === undefined) return
+        if (!Number.isFinite(val))
+          errors.push(`Partia ${idx + 1}: nieprawidłowe małe punkty gracza ${i + 1}`)
+      })
+    }
+  })
+
+  return errors
 }
 
 export async function POST(request: Request) {
   const supabase = await createSupabaseServer()
 
   // Sprawdzenie uprawnień
-  const { data: { user } } = await supabase.auth.getUser()
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
   if (!user) {
     return new Response(JSON.stringify({ errors: ['Unauthorized'] }), { status: 401 })
   }
@@ -40,184 +70,71 @@ export async function POST(request: Request) {
   }
 
   const body: RequestBody = await request.json()
+  const errors = validateBasic(body)
+  if (errors.length > 0) {
+    return new Response(JSON.stringify({ errors }), { status: 400 })
+  }
+
   const { turniej_id, numer_partii_start, liczba_partii, gracze, partie } = body
 
-  // Walidacja podstawowa
-  if (!gracze || gracze.length < 2 || gracze.length > 4) {
-    return new Response(JSON.stringify({ errors: ['Nieprawidłowa liczba graczy'] }), { status: 400 })
-  }
-
-  if (!partie || partie.length !== liczba_partii) {
-    return new Response(JSON.stringify({ errors: ['Nieprawidłowa liczba partii'] }), { status: 400 })
-  }
-
-  const wszystkieZmiany: ZmianaElo[][] = []
-
   try {
-    // Pobierz aktualne dane graczy (raz na początku)
-    const { data: aktualneElo } = await supabase
-      .from('gracz')
-      .select('id, imie, nazwisko, aktualny_elo, liczba_partii, suma_malych_punktow, liczba_duzych_punktow')
-      .in('id', gracze)
+    // ✅ baza czasu "teraz", a kolejne partie dostają +1s, +2s, +3s...
+    const baseTime = Date.now()
 
-    if (!aktualneElo || aktualneElo.length !== gracze.length) {
-      return new Response(JSON.stringify({ errors: ['Błąd pobierania rankingu graczy'] }), { status: 400 })
-    }
+    // przygotuj rekordy do insertu
+    const rows = partie.map((p, partiaIndex) => {
+      const numer = numer_partii_start + partiaIndex
 
-    // Pobierz konfigurację Elo
-    const { data: config } = await supabase
-      .from('elo_config')
-      .select('*')
-      .single()
-
-    // Przygotuj początkowy stan graczy
-    let stanGraczy = aktualneElo.map(gracz => ({
-      id: gracz.id,
-      imie: gracz.imie,
-      nazwisko: gracz.nazwisko,
-      aktualny_elo: gracz.aktualny_elo,
-      liczba_partii: gracz.liczba_partii,
-      suma_malych_punktow: gracz.suma_malych_punktow,
-      liczba_duzych_punktow: gracz.liczba_duzych_punktow
-    }))
-
-    // Przetwarzaj każdą partię sekwencyjnie
-    for (let partiaIndex = 0; partiaIndex < liczba_partii; partiaIndex++) {
-      const partiaData = partie[partiaIndex]
-      const numerBiezacejPartii = numer_partii_start + partiaIndex
-
-      // Przygotuj dane graczy dla walidacji
-      const wybraniGracze = gracze.map((graczId, index) => ({
-        id: graczId,
-        duzy_punkt: partiaData.duzyPunkt === graczId,
-        male_punkty: partiaData.malePunkty[index] || 0
-      }))
-
-      // Walidacja partii
-      const errors = validatePartia(wybraniGracze.map(g => ({ id: g.id, duzy_punkt: g.duzy_punkt })))
-      if (errors.length > 0) {
-        console.error('Błędy walidacji partii:', partiaIndex, errors)
-        return new Response(JSON.stringify({ errors }), { status: 400 })
-      }
-
-      // Przygotuj dane do obliczenia Elo
-      const graczeDoObliczen = wybraniGracze.map(g => {
-        const graczStan = stanGraczy.find(s => s.id === g.id)
-        return {
-          id: g.id,
-          elo_przed: graczStan?.aktualny_elo || 1200,
-          liczba_partii: graczStan?.liczba_partii || 0,
-          duzy_punkt: g.duzy_punkt
-        }
-      })
-
-      // Oblicz nowe Elo
-      const noweElo = calculateEloChanges(graczeDoObliczen, config || {
-        k_factor_nowy_gracz: 40,
-        k_factor_staly_gracz: 20,
-        prog_staly_gracz: 30
-      })
-
-      // Stwórz partię
-      const partiaDoZapisu: any = {
-        turniej_id: turniej_id,
-        numer_partii: numerBiezacejPartii,
+      const row: any = {
+        turniej_id,
+        numer_partii: numer,
         liczba_graczy: gracze.length,
-        data_rozgrywki: new Date().toISOString(),
-        duzy_punkt_gracz_id: partiaData.duzyPunkt
+        // ✅ każdy rekord ma inny timestamp, ale bez realnego czekania
+        data_rozgrywki: new Date(baseTime + partiaIndex * 1000).toISOString(),
+        duzy_punkt_gracz_id: p.duzyPunkt,
       }
 
-      // Uzupełnij dane dla każdego gracza
-      gracze.forEach((graczId, index) => {
-        const graczStan = stanGraczy.find(s => s.id === graczId)
-        const elo = noweElo.find(e => e.id === graczId)
-        
-        partiaDoZapisu[`gracz${index+1}_id`] = graczId
-        partiaDoZapisu[`male_punkty${index+1}`] = partiaData.malePunkty[index] || 0
-        partiaDoZapisu[`elo_przed${index+1}`] = graczStan?.aktualny_elo || 1200
-        partiaDoZapisu[`elo_po${index+1}`] = elo?.elo_po
-        partiaDoZapisu[`zmiana_elo${index+1}`] = elo?.zmiana_elo
+      // ustaw graczy + małe punkty w tej samej kolejności co "gracze[]"
+      gracze.forEach((graczId, i) => {
+        row[`gracz${i + 1}_id`] = graczId
+
+        // małe punkty opcjonalne: null => zapisujemy 0 (prościej dla raportów)
+        const mp = p.malePunkty?.[i]
+        row[`male_punkty${i + 1}`] = mp === null || mp === undefined ? 0 : mp
       })
 
-      // Wstaw partię do bazy
-      const { data: nowaPartia, error: errorPartia } = await supabase
-        .from('wyniki_partii')
-        .insert(partiaDoZapisu)
-        .select()
-        .single()
-
-      if (errorPartia) {
-        console.error('Błąd przy tworzeniu partii:', errorPartia)
-        return new Response(JSON.stringify({ errors: ['Błąd przy tworzeniu partii'] }), { status: 500 })
+      // wyczyść sloty 4-go gracza jeśli partia jest na 2-3 osoby (u Ciebie to i tak 2-4)
+      for (let i = gracze.length; i < 4; i++) {
+        row[`gracz${i + 1}_id`] = null
+        row[`male_punkty${i + 1}`] = 0
       }
 
-      // Aktualizuj stan graczy dla następnej partii
-      stanGraczy = stanGraczy.map(gracz => {
-        const elo = noweElo.find(e => e.id === gracz.id)
-        const wybranyGracz = wybraniGracze.find(g => g.id === gracz.id)
-        
-        return {
-          ...gracz,
-          aktualny_elo: elo?.elo_po || gracz.aktualny_elo,
-          liczba_partii: gracz.liczba_partii + 1,
-          suma_malych_punktow: gracz.suma_malych_punktow + (wybranyGracz?.male_punkty || 0),
-          liczba_duzych_punktow: gracz.liczba_duzych_punktow + (wybranyGracz?.duzy_punkt ? 1 : 0)
-        }
-      })
-
-      // Przygotuj dane do podsumowania
-      const zmiany = wybraniGracze.map(g => {
-        const graczStan = stanGraczy.find(s => s.id === g.id)
-        const elo = noweElo.find(e => e.id === g.id)
-        
-        return {
-          gracz_id: g.id,
-          imie: graczStan?.imie || '',
-          nazwisko: graczStan?.nazwisko || '',
-          elo_przed: graczeDoObliczen.find(d => d.id === g.id)?.elo_przed || 1200,
-          elo_po: elo?.elo_po || 1200,
-          zmiana_elo: elo?.zmiana_elo || 0,
-          male_punkty: g.male_punkty,
-          duzy_punkt: g.duzy_punkt
-        }
-      })
-
-      wszystkieZmiany.push(zmiany)
-    }
-
-    // Na koniec zaktualizuj graczy w bazie danych
-    for (const gracz of stanGraczy) {
-      const { error: errorUpdate } = await supabase
-        .from('gracz')
-        .update({
-          aktualny_elo: gracz.aktualny_elo,
-          liczba_partii: gracz.liczba_partii,
-          suma_malych_punktow: gracz.suma_malych_punktow,
-          liczba_duzych_punktow: gracz.liczba_duzych_punktow,
-          ostatnia_aktualizacja: new Date().toISOString()
-        })
-        .eq('id', gracz.id)
-
-      if (errorUpdate) {
-        console.error('Błąd aktualizacji rankingu gracza:', errorUpdate)
-      }
-    }
-
-    // Revalidate path
-    revalidatePath(`/admin/turniej/${turniej_id}/partie`)
-
-    return new Response(JSON.stringify({ 
-      success: true,
-      zmiany: wszystkieZmiany
-    }), {
-      status: 200,
-      headers: {
-        'Content-Type': 'application/json',
-      },
+      return row
     })
 
-  } catch (error) {
-    console.error('Błąd podczas zapisywania partii:', error)
+    const { error: insertError } = await supabase.from('wyniki_partii').insert(rows)
+    if (insertError) {
+      console.error('Błąd przy tworzeniu partii:', insertError)
+      return new Response(JSON.stringify({ errors: ['Błąd przy tworzeniu partii'] }), { status: 500 })
+    }
+
+    // odśwież widok listy partii
+    revalidatePath(`/admin/turniej/${turniej_id}/partie`)
+
+    return new Response(
+      JSON.stringify({
+        success: true,
+        saved: liczba_partii,
+        numer_od: numer_partii_start,
+        numer_do: numer_partii_start + liczba_partii - 1,
+      }),
+      {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      }
+    )
+  } catch (err) {
+    console.error('Błąd podczas zapisywania partii:', err)
     return new Response(JSON.stringify({ errors: ['Wewnętrzny błąd serwera'] }), { status: 500 })
   }
 }
