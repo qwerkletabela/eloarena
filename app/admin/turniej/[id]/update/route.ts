@@ -7,7 +7,7 @@ const sheetColRe = /^[A-Za-z]$/
 const UUID_RE =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
 
-const GAME_VALUES = new Set(['rummikub_standard', 'rummikub_twist', 'qwirkle'])
+const GAME_VALUES = new Set(['rummikub_standard', 'rummikub_twist', 'qwirkle', 'rummikub_duel', 'rummikub_expert'])
 
 function toNullIfEmpty(v: unknown): string | null {
   const s = String(v ?? '').trim()

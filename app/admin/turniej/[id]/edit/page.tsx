@@ -32,6 +32,8 @@ type MiejsceRow = {
 const GAME_VARIANTS = [
   { value: 'rummikub_standard', label: 'Rummikub – Standard' },
   { value: 'rummikub_twist', label: 'Rummikub – Twist' },
+  { value: 'rummikub_duel', label: 'Rummikub – Pojedynek' },
+  { value: 'rummikub_expert', label: 'Rummikub – Expert' },
   { value: 'qwirkle', label: 'Qwirkle' },
 ] as const
 
@@ -64,6 +66,22 @@ export default async function EditTurniejPage(props: EditTurniejPageProps) {
 
   if (!turniej) redirect('/admin?error=turniej_not_found')
 
+  // 🧾 Czy są już partie / wyniki? (blokada zmiany gry w UI)
+  const { count: wynikiCount, error: wynikiCountErr } = await supabase
+    .from('wyniki_partii')
+    .select('id', { head: true, count: 'exact' })
+    .eq('turniej_id', params.id)
+
+  const graLocked = !wynikiCountErr && (wynikiCount ?? 0) > 0
+
+  // ✅ Czy jest skonfigurowany import z Sheets? (wtedy sekcja ma być domyślnie rozwinięta)
+  const hasSheetsConfig = Boolean(
+    (turniej as any).gsheet_url ||
+      (turniej as any).arkusz_nazwa ||
+      (turniej as any).kolumna_nazwisk ||
+      (turniej as any).pierwszy_wiersz_z_nazwiskiem
+  )
+
   // komunikaty błędów (pasują do route.ts)
   const errorMessages: Record<string, string> = {
     invalid_input: 'Wypełnij wszystkie wymagane pola',
@@ -86,7 +104,8 @@ export default async function EditTurniejPage(props: EditTurniejPageProps) {
 
   const currentGame: string = (turniej as any).gra || ''
   const currentGameLabel =
-    GAME_VARIANTS.find((v) => v.value === currentGame)?.label || '— nie ustawiono —'
+    GAME_VARIANTS.find((v) => v.value === currentGame)?.label ||
+    (currentGame ? 'Nieznany wariant' : '— nie ustawiono —')
 
   return (
     <main className="flex min-h-[calc(100vh-4rem)] items-start justify-center px-6 sm:px-8 py-12 sm:py-16">
@@ -121,7 +140,7 @@ export default async function EditTurniejPage(props: EditTurniejPageProps) {
             />
           </div>
 
-          {/* GRA / WARIANT */}
+          {/* GRA / WARIANT (rygorystycznie: bez selecta po dodaniu partii) */}
           <div>
             <label className="flex items-center gap-2 text-sm text-sky-100">
               <Trophy size={18} /> Gra / wariant
@@ -133,23 +152,37 @@ export default async function EditTurniejPage(props: EditTurniejPageProps) {
               <span className="ml-2 text-xs text-slate-400">({currentGame || 'brak'})</span>
             </div>
 
-            <select
-              name="gra"
-              required
-              defaultValue={currentGame}
-              className="mt-2 w-full rounded-xl border border-slate-600 bg-slate-900 px-3 py-2 text-sky-100"
-            >
-              <option value="">— wybierz z listy —</option>
-              {GAME_VARIANTS.map((opt) => (
-                <option key={opt.value} value={opt.value}>
-                  {opt.label}
-                </option>
-              ))}
-            </select>
+            {graLocked ? (
+              <>
+                <div className="mt-2 rounded-xl border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-amber-200 text-sm">
+                  🔒 Nie można zmienić gry / wariantu, ponieważ dodano już co najmniej jedną
+                  partię / wynik.
+                </div>
 
-            <p className="mt-1 text-xs text-slate-400">
-              Uwaga: po dodaniu pierwszej partii zmiana gry może być zablokowana.
-            </p>
+                {/* Ważne: wysyłamy gra w formData mimo braku selecta */}
+                <input type="hidden" name="gra" value={currentGame} />
+              </>
+            ) : (
+              <>
+                <select
+                  name="gra"
+                  required
+                  defaultValue={currentGame}
+                  className="mt-2 w-full rounded-xl border border-slate-600 bg-slate-900 px-3 py-2 text-sky-100"
+                >
+                  <option value="">— wybierz z listy —</option>
+                  {GAME_VARIANTS.map((opt) => (
+                    <option key={opt.value} value={opt.value}>
+                      {opt.label}
+                    </option>
+                  ))}
+                </select>
+
+                <p className="mt-1 text-xs text-slate-400">
+                  Uwaga: po dodaniu pierwszej partii zmiana gry będzie zablokowana.
+                </p>
+              </>
+            )}
           </div>
 
           {/* DATA / GODZINY */}
@@ -229,66 +262,81 @@ export default async function EditTurniejPage(props: EditTurniejPageProps) {
             </select>
           </div>
 
-          {/* GOOGLE SHEETS */}
-          <div className="rounded-2xl border border-slate-700 bg-slate-900/30 p-4 space-y-4">
-            <div className="flex items-center gap-2 text-sky-100">
-              <SheetIcon size={18} />
-              <h2 className="font-semibold">Import z Google Sheets (opcjonalnie)</h2>
-            </div>
+          {/* GOOGLE SHEETS (ukryte / rozwijane) */}
+          <details
+            className="rounded-2xl border border-slate-700 bg-slate-900/30 p-4"
+            open={hasSheetsConfig}
+          >
+            <summary className="flex cursor-pointer list-none items-center justify-between gap-3 text-sky-100">
+              <div className="flex items-center gap-2">
+                <SheetIcon size={18} />
+                <h2 className="font-semibold">Import z Google Sheets (opcjonalnie)</h2>
+              </div>
 
-            <div>
-              <label className="flex items-center gap-2 text-sm text-sky-100">
-                <LinkIcon size={18} /> Link do arkusza (gsheet_url)
-              </label>
-              <input
-                name="gsheet_url"
-                placeholder="https://..."
-                defaultValue={(turniej as any).gsheet_url || ''}
-                className="mt-1 w-full rounded-xl border border-slate-600 bg-slate-900 px-3 py-2 text-sky-100"
-              />
-            </div>
+              <span className="text-xs text-slate-400">
+                {hasSheetsConfig ? 'skonfigurowano' : 'kliknij aby dodać'}
+              </span>
+            </summary>
 
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-              <div className="sm:col-span-2">
+            <div className="mt-4 space-y-4">
+              <div>
                 <label className="flex items-center gap-2 text-sm text-sky-100">
-                  <SheetIcon size={18} /> Nazwa arkusza (arkusz_nazwa)
+                  <LinkIcon size={18} /> Link do arkusza (gsheet_url)
                 </label>
                 <input
-                  name="arkusz_nazwa"
-                  placeholder="np. Sheet1"
-                  defaultValue={(turniej as any).arkusz_nazwa || ''}
+                  name="gsheet_url"
+                  placeholder="https://..."
+                  defaultValue={(turniej as any).gsheet_url || ''}
                   className="mt-1 w-full rounded-xl border border-slate-600 bg-slate-900 px-3 py-2 text-sky-100"
                 />
               </div>
 
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                <div className="sm:col-span-2">
+                  <label className="flex items-center gap-2 text-sm text-sky-100">
+                    <SheetIcon size={18} /> Nazwa arkusza (arkusz_nazwa)
+                  </label>
+                  <input
+                    name="arkusz_nazwa"
+                    placeholder="np. Sheet1"
+                    defaultValue={(turniej as any).arkusz_nazwa || ''}
+                    className="mt-1 w-full rounded-xl border border-slate-600 bg-slate-900 px-3 py-2 text-sky-100"
+                  />
+                </div>
+
+                <div>
+                  <label className="flex items-center gap-2 text-sm text-sky-100">
+                    <Hash size={18} /> Kolumna nazwisk (A–Z)
+                  </label>
+                  <input
+                    name="kolumna_nazwisk"
+                    placeholder="np. A"
+                    maxLength={1}
+                    defaultValue={(turniej as any).kolumna_nazwisk || ''}
+                    className="mt-1 w-full rounded-xl border border-slate-600 bg-slate-900 px-3 py-2 text-sky-100 uppercase"
+                  />
+                </div>
+              </div>
+
               <div>
                 <label className="flex items-center gap-2 text-sm text-sky-100">
-                  <Hash size={18} /> Kolumna nazwisk (A–Z)
+                  <Hash size={18} /> Pierwszy wiersz z nazwiskiem
                 </label>
                 <input
-                  name="kolumna_nazwisk"
-                  placeholder="np. A"
-                  maxLength={1}
-                  defaultValue={(turniej as any).kolumna_nazwisk || ''}
-                  className="mt-1 w-full rounded-xl border border-slate-600 bg-slate-900 px-3 py-2 text-sky-100 uppercase"
+                  type="number"
+                  name="pierwszy_wiersz_z_nazwiskiem"
+                  min={1}
+                  placeholder="np. 2"
+                  defaultValue={(turniej as any).pierwszy_wiersz_z_nazwiskiem ?? ''}
+                  className="mt-1 w-full rounded-xl border border-slate-600 bg-slate-900 px-3 py-2 text-sky-100"
                 />
               </div>
-            </div>
 
-            <div>
-              <label className="flex items-center gap-2 text-sm text-sky-100">
-                <Hash size={18} /> Pierwszy wiersz z nazwiskiem
-              </label>
-              <input
-                type="number"
-                name="pierwszy_wiersz_z_nazwiskiem"
-                min={1}
-                placeholder="np. 2"
-                defaultValue={(turniej as any).pierwszy_wiersz_z_nazwiskiem ?? ''}
-                className="mt-1 w-full rounded-xl border border-slate-600 bg-slate-900 px-3 py-2 text-sky-100"
-              />
+              <p className="text-xs text-slate-400">
+                Jeśli nie korzystasz z importu, zostaw pola puste.
+              </p>
             </div>
-          </div>
+          </details>
 
           {/* AKCJE */}
           <div className="flex gap-3 pt-2">
