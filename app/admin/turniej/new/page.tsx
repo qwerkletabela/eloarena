@@ -1,4 +1,3 @@
-// elo-arena/app/turniej/new/page.tsx
 'use client'
 
 import { redirect } from 'next/navigation'
@@ -24,7 +23,7 @@ interface Miejsce {
   adres: string | null
 }
 
-interface FormData {
+interface FormDataState {
   nazwa: string
   gra: string
   data_turnieju: string
@@ -38,12 +37,14 @@ interface FormData {
   miejsce_id: string
 }
 
+type Role = 'admin' | 'organizer' | string
+
 export default function NewTurniejPage() {
   const [miejsca, setMiejsca] = useState<Miejsce[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [showConfirmModal, setShowConfirmModal] = useState(false)
-  const [showMoreDetails, setShowMoreDetails] = useState(false) // ✅ NOWE
-  const [formData, setFormData] = useState<FormData>({
+  const [showMoreDetails, setShowMoreDetails] = useState(false)
+  const [formData, setFormData] = useState<FormDataState>({
     nazwa: '',
     gra: '',
     data_turnieju: '',
@@ -67,29 +68,61 @@ export default function NewTurniejPage() {
         const {
           data: { user },
         } = await supabase.auth.getUser()
+
         if (!user) {
           redirect('/auth/signin')
           return
         }
 
-        const { data: isAdmin } = await supabase.rpc('is_admin')
-        if (!isAdmin) {
+        // ✅ 1) Spróbuj pobrać rolę z profiles.role
+        let role: Role | null = null
+
+        const { data: profile, error: profileError } = await supabase
+          .from('profiles')
+          .select('role')
+          .eq('id', user.id)
+          .maybeSingle()
+
+        if (!profileError && profile?.role) {
+          role = profile.role
+        }
+
+        // ✅ 2) Fallback: jeśli nie ma profiles albo nie ma roli, spróbuj users.ranga
+        if (!role) {
+          const { data: urow, error: uerr } = await supabase
+            .from('users')
+            .select('ranga')
+            .eq('id', user.id)
+            .maybeSingle()
+
+          if (!uerr && urow?.ranga) {
+            role = urow.ranga
+          }
+        }
+
+        // ✅ 3) Autoryzacja: admin lub organizer
+        const allowed = role === 'admin' || role === 'organizer'
+        if (!allowed) {
+          // jak chcesz debug:
+          // console.log('Access denied. role=', role, 'user=', user.id)
           redirect('/')
           return
         }
 
-        const { data: miejscaData, error } = await supabase
+        const { data: miejscaData, error: miejscaError } = await supabase
           .from('miejsce_turnieju')
           .select('id, nazwa, miasto, wojewodztwo, adres')
           .order('nazwa', { ascending: true })
 
-        if (error) {
-          console.error('Error fetching miejsca:', error)
+        if (miejscaError) {
+          console.error('Error fetching miejsca:', miejscaError)
+          setError('Nie udało się pobrać listy miejsc.')
         } else {
           setMiejsca(miejscaData || [])
         }
-      } catch (error) {
-        console.error('Error:', error)
+      } catch (err) {
+        console.error('Error:', err)
+        setError('Wystąpił błąd podczas ładowania danych.')
       } finally {
         setIsLoading(false)
       }
@@ -126,28 +159,41 @@ export default function NewTurniejPage() {
     setShowConfirmModal(true)
   }
 
+  const getErrorMessage = (errorCode: string | null) => {
+    const errorMessages: { [key: string]: string } = {
+      invalid_input: 'Nieprawidłowe dane formularza.',
+      game_required: 'Wybierz grę / wariant.',
+      date_time_required: 'Podaj datę i godzinę wydarzenia.',
+      sheet_col_invalid: 'Kolumna nazwisk musi być literą (A–Z).',
+      number_invalid: 'Nieprawidłowa wartość liczbowa.',
+      url_invalid: 'Link musi zaczynać się od http(s)://',
+      location_required: 'Wybierz miejsce turnieju.',
+      invalid_location_id: 'Nieprawidłowy identyfikator miejsca.',
+      location_not_found: 'Wybrane miejsce nie istnieje.',
+      database_error: 'Błąd bazy danych podczas zapisywania.',
+    }
+    return errorMessages[errorCode || ''] || 'Nie udało się zapisać.'
+  }
+
   const handleConfirm = async () => {
     setIsSubmitting(true)
     try {
-      const formDataToSend = new FormData()
-      formDataToSend.append('nazwa', formData.nazwa)
-      formDataToSend.append('gra', formData.gra)
-      formDataToSend.append('data_turnieju', formData.data_turnieju)
-      formDataToSend.append('godzina_turnieju', formData.godzina_turnieju)
-      formDataToSend.append('zakonczenie_turnieju', formData.zakonczenie_turnieju)
-      formDataToSend.append('gsheet_url', formData.gsheet_url)
-      formDataToSend.append('arkusz_nazwa', formData.arkusz_nazwa)
-      formDataToSend.append('kolumna_nazwisk', formData.kolumna_nazwisk)
-      formDataToSend.append(
-        'pierwszy_wiersz_z_nazwiskiem',
-        formData.pierwszy_wiersz_z_nazwiskiem.toString()
-      )
-      formDataToSend.append('limit_graczy', formData.limit_graczy)
-      formDataToSend.append('miejsce_id', formData.miejsce_id)
+      const fd = new FormData()
+      fd.append('nazwa', formData.nazwa)
+      fd.append('gra', formData.gra)
+      fd.append('data_turnieju', formData.data_turnieju)
+      fd.append('godzina_turnieju', formData.godzina_turnieju)
+      fd.append('zakonczenie_turnieju', formData.zakonczenie_turnieju)
+      fd.append('gsheet_url', formData.gsheet_url)
+      fd.append('arkusz_nazwa', formData.arkusz_nazwa)
+      fd.append('kolumna_nazwisk', formData.kolumna_nazwisk)
+      fd.append('pierwszy_wiersz_z_nazwiskiem', formData.pierwszy_wiersz_z_nazwiskiem)
+      fd.append('limit_graczy', formData.limit_graczy)
+      fd.append('miejsce_id', formData.miejsce_id)
 
-      const response = await fetch('/turniej/create', {
+      const response = await fetch('/admin/turniej/create', {
         method: 'POST',
-        body: formDataToSend,
+        body: fd,
       })
 
       if (response.ok) {
@@ -164,21 +210,6 @@ export default function NewTurniejPage() {
       setIsSubmitting(false)
       setShowConfirmModal(false)
     }
-  }
-
-  const getErrorMessage = (errorCode: string | null) => {
-    const errorMessages: { [key: string]: string } = {
-      invalid_input: 'Nieprawidłowe dane formularza.',
-      date_time_required: 'Podaj datę i godzinę wydarzenia.',
-      sheet_col_invalid: 'Kolumna nazwisk musi być literą (A–Z).',
-      number_invalid: 'Nieprawidłowa wartość liczbowa.',
-      url_invalid: 'Link musi zaczynać się od http(s)://',
-      location_required: 'Wybierz miejsce turnieju.',
-      invalid_location_id: 'Nieprawidłowy identyfikator miejsca.',
-      location_not_found: 'Wybrane miejsce nie istnieje.',
-      database_error: 'Błąd bazy danych podczas zapisywania.',
-    }
-    return errorMessages[errorCode || ''] || 'Nie udało się zapisać.'
   }
 
   const getMiejsceNazwa = () => {
@@ -213,7 +244,6 @@ export default function NewTurniejPage() {
           )}
 
           <form onSubmit={handleSubmit} className="space-y-5">
-            {/* Nazwa turnieju */}
             <div>
               <label className="flex items-center gap-1.5 text-sm font-medium text-sky-100">
                 <Trophy size={18} />
@@ -229,7 +259,6 @@ export default function NewTurniejPage() {
               />
             </div>
 
-            {/* Gra / wariant */}
             <div>
               <label className="flex items-center gap-1.5 text-sm font-medium text-sky-100">
                 <Dices size={18} />
@@ -246,11 +275,12 @@ export default function NewTurniejPage() {
                 <option value="">— wybierz z listy —</option>
                 <option value="rummikub_standard">Rummikub – Standard</option>
                 <option value="rummikub_twist">Rummikub – Twist</option>
+                <option value="rummikub_duel">Rummikub – Pojedynek</option>
+                <option value="rummikub_expert">Rummikub – Expert</option>
                 <option value="qwirkle">Qwirkle</option>
               </select>
             </div>
 
-            {/* Data i godziny */}
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
               <div>
                 <label className="flex items-center gap-1.5 text-sm font-medium text-sky-100">
@@ -298,7 +328,6 @@ export default function NewTurniejPage() {
               </div>
             </div>
 
-            {/* ✅ Miejsce turnieju + link poniżej */}
             <div>
               <label className="flex items-center gap-1.5 text-sm font-medium text-sky-100">
                 <MapPin size={18} />
@@ -333,7 +362,6 @@ export default function NewTurniejPage() {
               </div>
             </div>
 
-            {/* ✅ Więcej szczegółów (accordion) */}
             <div className="pt-2">
               <button
                 type="button"
@@ -350,7 +378,6 @@ export default function NewTurniejPage() {
 
               {showMoreDetails && (
                 <div className="mt-3 space-y-5 rounded-2xl border border-slate-700 bg-slate-900/30 p-4">
-                  {/* Arkusz Google */}
                   <div>
                     <label className="block text-sm font-medium text-sky-100">
                       Link do arkusza Google (opcjonalnie)
@@ -364,7 +391,6 @@ export default function NewTurniejPage() {
                     />
                   </div>
 
-                  {/* Szczegóły arkusza */}
                   <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
                     <div>
                       <label className="block text-sm font-medium text-sky-100">
@@ -391,9 +417,7 @@ export default function NewTurniejPage() {
                         placeholder=""
                         maxLength={2}
                       />
-                      <p className="mt-1 text-xs text-slate-400">
-                        Jedna litera A-Z.
-                      </p>
+                      <p className="mt-1 text-xs text-slate-400">Jedna litera A-Z.</p>
                     </div>
 
                     <div>
@@ -410,7 +434,6 @@ export default function NewTurniejPage() {
                     </div>
                   </div>
 
-                  {/* Limit graczy */}
                   <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                     <div>
                       <label className="block text-sm font-medium text-sky-100">
@@ -429,7 +452,6 @@ export default function NewTurniejPage() {
               )}
             </div>
 
-            {/* Przyciski akcji */}
             <div className="flex gap-2 pt-4">
               <button
                 className="w-full rounded-full bg-gradient-to-r from-sky-500 to-sky-600 px-4 py-3 text-lg font-semibold text-white shadow-[0_10px_25px_rgba(15,23,42,0.9)] transition-all hover:from-sky-400 hover:to-sky-500 hover:shadow-[0_14px_35px_rgba(15,23,42,1)] active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed"

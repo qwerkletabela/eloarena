@@ -3,18 +3,17 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { 
-  Trophy, 
-  MapPin, 
+import {
+  Trophy,
+  MapPin,
   Home,
-  CalendarPlus,
   List,
   PlusCircle,
   LogOut,
   User,
   BarChart3,
   Settings,
-  Shield
+  Shield,
 } from 'lucide-react'
 
 interface OrganizerSidebarProps {
@@ -33,62 +32,51 @@ export default function OrganizerSidebar({ user, role }: OrganizerSidebarProps) 
       title: 'Dashboard',
       href: '/organizer/dashboard',
       icon: <Home className="h-5 w-5" />,
-      description: 'Panel organizatora'
+      description: 'Panel organizatora',
     },
     {
       title: 'Moje turnieje',
       href: '/organizer/turnieje',
       icon: <List className="h-5 w-5" />,
-      description: 'Zarządzaj turniejami'
+      description: 'Zarządzaj turniejami',
     },
     {
       title: 'Nowy turniej',
-      href: '/turniej/new',
+      href: '/admin/turniej/new', // ✅ TU
       icon: <PlusCircle className="h-5 w-5" />,
-      description: 'Utwórz nowy turniej'
+      description: 'Utwórz nowy turniej',
     },
     {
       title: 'Moje miejsca',
       href: '/organizer/miejsca',
       icon: <MapPin className="h-5 w-5" />,
-      description: 'Twoje miejsca turniejów'
+      description: 'Twoje miejsca turniejów',
     },
     {
       title: 'Dodaj miejsce',
       href: '/miejsce/new',
       icon: <PlusCircle className="h-5 w-5" />,
-      description: 'Dodaj nowe miejsce'
+      description: 'Dodaj nowe miejsce',
     },
     {
       title: 'Statystyki',
       href: '/organizer/statystyki',
       icon: <BarChart3 className="h-5 w-5" />,
-      description: 'Statystyki organizatora'
+      description: 'Statystyki organizatora',
     },
     {
       title: 'Ustawienia',
       href: '/organizer/ustawienia',
       icon: <Settings className="h-5 w-5" />,
-      description: 'Ustawienia konta'
-    }
+      description: 'Ustawienia konta',
+    },
   ]
-
-  // Jeśli jest też adminem, dodaj link do panelu admina
-  if (role === 'admin') {
-    menuItems.push({
-      title: 'Panel admina',
-      href: '/admin',
-      icon: <Shield className="h-5 w-5" />,
-      description: 'Przejdź do panelu admina'
-    })
-  }
 
   const handleLogout = async () => {
     try {
       const response = await fetch('/auth/signout', { method: 'POST' })
-      if (response.ok) {
-        window.location.href = '/'
-      }
+      if (response.ok) window.location.href = '/'
+      else window.location.href = '/'
     } catch (error) {
       console.error('Logout error:', error)
       window.location.href = '/'
@@ -131,14 +119,14 @@ export default function OrganizerSidebar({ user, role }: OrganizerSidebarProps) 
       <nav className="flex-1 p-4 space-y-1 overflow-y-auto">
         {menuItems.map((item) => {
           const isActive = pathname === item.href || pathname?.startsWith(`${item.href}/`)
-          
+
           return (
             <Link
               key={item.href}
               href={item.href}
               className={`flex items-center space-x-3 p-3 rounded-lg transition-all ${
-                isActive 
-                  ? 'bg-emerald-900/40 text-emerald-100 border border-emerald-700/50' 
+                isActive
+                  ? 'bg-emerald-900/40 text-emerald-100 border border-emerald-700/50'
                   : 'text-slate-400 hover:bg-slate-700/50 hover:text-white'
               }`}
             >
@@ -154,6 +142,17 @@ export default function OrganizerSidebar({ user, role }: OrganizerSidebarProps) 
 
       {/* Footer */}
       <div className="p-6 border-t border-slate-700 space-y-3">
+        {/* ✅ Tylko link do panelu admina (opcjonalny) */}
+        {role === 'admin' && (
+          <Link
+            href="/admin"
+            className="flex items-center space-x-3 p-3 rounded-lg text-sm font-medium text-slate-400 hover:bg-slate-700/50 hover:text-white transition-colors"
+          >
+            <Shield className="h-4 w-4" />
+            <span>Panel admina</span>
+          </Link>
+        )}
+
         <Link
           href="/"
           className="flex items-center space-x-3 p-3 rounded-lg text-sm font-medium text-slate-400 hover:bg-slate-700/50 hover:text-white transition-colors"
@@ -161,7 +160,7 @@ export default function OrganizerSidebar({ user, role }: OrganizerSidebarProps) 
           <Home className="h-4 w-4" />
           <span>Strona główna</span>
         </Link>
-        
+
         <button
           onClick={handleLogout}
           className="flex items-center space-x-3 w-full p-3 rounded-lg text-sm font-medium text-slate-400 hover:bg-red-900/30 hover:text-red-300 transition-colors"
