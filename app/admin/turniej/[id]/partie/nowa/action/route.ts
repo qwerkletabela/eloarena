@@ -2,61 +2,32 @@
 import { createSupabaseServer } from '@/lib/supabase/server'
 import { revalidatePath } from 'next/cache'
 
+type PartiaPayload = {
+  stolik: number | null
+  duzyPunkt: string
+  malePunkty: Array<number | null>
+}
+
 interface RequestBody {
   turniej_id: string
   numer_partii_start: number
   liczba_partii: number
-  gracze: string[] // 2-4 graczy, w stałej kolejności
-  partie: Array<{
-    duzyPunkt: string // id zwycięzcy (musi być jednym z gracze[])
-    malePunkty: Array<number | null> // opcjonalne, mogą być null
-  }>
+  gracze: string[]
+  partie: PartiaPayload[]
 }
 
-function validateBasic(body: RequestBody) {
-  const errors: string[] = []
+function sleep(ms: number) {
+  return new Promise((resolve) => setTimeout(resolve, ms))
+}
 
-  if (!body.turniej_id) errors.push('Brak turniej_id')
-  if (!Number.isFinite(body.numer_partii_start) || body.numer_partii_start < 1)
-    errors.push('Nieprawidłowy numer_partii_start')
-  if (!Number.isFinite(body.liczba_partii) || body.liczba_partii < 1 || body.liczba_partii > 10)
-    errors.push('Nieprawidłowa liczba_partii (1-10)')
-
-  if (!body.gracze || body.gracze.length < 2 || body.gracze.length > 4)
-    errors.push('Nieprawidłowa liczba graczy (2-4)')
-
-  // brak duplikatów graczy
-  if (body.gracze) {
-    const set = new Set(body.gracze)
-    if (set.size !== body.gracze.length) errors.push('Gracze nie mogą się powtarzać')
-  }
-
-  if (!body.partie || body.partie.length !== body.liczba_partii)
-    errors.push('Nieprawidłowa liczba partii')
-
-  // walidacja każdej partii: zwycięzca musi być wśród gracze[]
-  body.partie?.forEach((p, idx) => {
-    if (!p.duzyPunkt) errors.push(`Partia ${idx + 1}: nie wybrano zwycięzcy`)
-    if (p.duzyPunkt && !body.gracze.includes(p.duzyPunkt))
-      errors.push(`Partia ${idx + 1}: zwycięzca nie jest wśród wybranych graczy`)
-
-    // małe punkty: jeśli wpisane, muszą być liczbą
-    if (p.malePunkty && Array.isArray(p.malePunkty)) {
-      p.malePunkty.forEach((val, i) => {
-        if (val === null || val === undefined) return
-        if (!Number.isFinite(val))
-          errors.push(`Partia ${idx + 1}: nieprawidłowe małe punkty gracza ${i + 1}`)
-      })
-    }
-  })
-
-  return errors
+function isValidInt(n: unknown) {
+  return typeof n === 'number' && Number.isFinite(n) && Number.isInteger(n)
 }
 
 export async function POST(request: Request) {
   const supabase = await createSupabaseServer()
 
-  // Sprawdzenie uprawnień
+  // auth
   const {
     data: { user },
   } = await supabase.auth.getUser()
@@ -69,72 +40,122 @@ export async function POST(request: Request) {
     return new Response(JSON.stringify({ errors: ['Forbidden'] }), { status: 403 })
   }
 
-  const body: RequestBody = await request.json()
-  const errors = validateBasic(body)
-  if (errors.length > 0) {
-    return new Response(JSON.stringify({ errors }), { status: 400 })
+  let body: RequestBody
+  try {
+    body = (await request.json()) as RequestBody
+  } catch {
+    return new Response(JSON.stringify({ errors: ['Nieprawidłowe JSON'] }), { status: 400 })
   }
 
   const { turniej_id, numer_partii_start, liczba_partii, gracze, partie } = body
 
-  try {
-    // ✅ baza czasu "teraz", a kolejne partie dostają +1s, +2s, +3s...
-    const baseTime = Date.now()
+  // podstawowa walidacja
+  if (!turniej_id) {
+    return new Response(JSON.stringify({ errors: ['Brak turniej_id'] }), { status: 400 })
+  }
 
-    // przygotuj rekordy do insertu
-    const rows = partie.map((p, partiaIndex) => {
+  if (!isValidInt(numer_partii_start) || numer_partii_start < 1) {
+    return new Response(JSON.stringify({ errors: ['Nieprawidłowy numer_partii_start'] }), {
+      status: 400,
+    })
+  }
+
+  if (!isValidInt(liczba_partii) || liczba_partii < 1 || liczba_partii > 10) {
+    return new Response(JSON.stringify({ errors: ['Nieprawidłowa liczba_partii'] }), { status: 400 })
+  }
+
+  if (!Array.isArray(gracze) || gracze.length < 2 || gracze.length > 4) {
+    return new Response(JSON.stringify({ errors: ['Nieprawidłowa liczba graczy'] }), { status: 400 })
+  }
+
+  if (!Array.isArray(partie) || partie.length !== liczba_partii) {
+    return new Response(JSON.stringify({ errors: ['Nieprawidłowa liczba partii'] }), { status: 400 })
+  }
+
+  // sprawdź duplikaty graczy
+  const uniq = new Set(gracze)
+  if (uniq.size !== gracze.length) {
+    return new Response(JSON.stringify({ errors: ['Gracze nie mogą się powtarzać'] }), { status: 400 })
+  }
+
+  // sprawdź czy turniej istnieje
+  const { data: turniej } = await supabase
+    .from('turniej')
+    .select('id')
+    .eq('id', turniej_id)
+    .single()
+
+  if (!turniej) {
+    return new Response(JSON.stringify({ errors: ['Nie znaleziono turnieju'] }), { status: 400 })
+  }
+
+  // baza czasu – każda partia ma +1s (różne data_rozgrywki)
+  const baseTime = Date.now()
+
+  try {
+    for (let partiaIndex = 0; partiaIndex < liczba_partii; partiaIndex++) {
+      const p = partie[partiaIndex]
       const numer = numer_partii_start + partiaIndex
 
+      // walidacja zwycięzcy
+      if (!p?.duzyPunkt || !gracze.includes(p.duzyPunkt)) {
+        return new Response(JSON.stringify({ errors: [`Partia #${numer}: nieprawidłowy zwycięzca`] }), {
+          status: 400,
+        })
+      }
+
+      // walidacja stolika (opcjonalnie)
+      let stolik: number | null = null
+      if (p.stolik === null || typeof p.stolik === 'undefined') {
+        stolik = null
+      } else if (typeof p.stolik === 'number' && Number.isFinite(p.stolik)) {
+        const s = Math.floor(p.stolik)
+        stolik = s >= 1 ? s : null
+      } else {
+        return new Response(JSON.stringify({ errors: [`Partia #${numer}: nieprawidłowy stolik`] }), {
+          status: 400,
+        })
+      }
+
+      const male = Array.isArray(p.malePunkty) ? p.malePunkty : []
+      // przygotuj rekord
       const row: any = {
-        turniej_id,
+        turniej_id: turniej_id,
         numer_partii: numer,
         liczba_graczy: gracze.length,
-        // ✅ każdy rekord ma inny timestamp, ale bez realnego czekania
         data_rozgrywki: new Date(baseTime + partiaIndex * 1000).toISOString(),
         duzy_punkt_gracz_id: p.duzyPunkt,
+        stolik: stolik, // ✅ TU zapisujemy numer stolika
       }
 
-      // ustaw graczy + małe punkty w tej samej kolejności co "gracze[]"
+      // gracze + małe punkty
       gracze.forEach((graczId, i) => {
         row[`gracz${i + 1}_id`] = graczId
-
-        // małe punkty opcjonalne: null => zapisujemy 0 (prościej dla raportów)
-        const mp = p.malePunkty?.[i]
-        row[`male_punkty${i + 1}`] = mp === null || mp === undefined ? 0 : mp
+        const mp = male[i]
+        row[`male_punkty${i + 1}`] = mp === null || typeof mp === 'undefined' ? 0 : Number(mp) || 0
       })
 
-      // wyczyść sloty 4-go gracza jeśli partia jest na 2-3 osoby (u Ciebie to i tak 2-4)
-      for (let i = gracze.length; i < 4; i++) {
-        row[`gracz${i + 1}_id`] = null
-        row[`male_punkty${i + 1}`] = 0
+      const { error } = await supabase.from('wyniki_partii').insert(row)
+      if (error) {
+        console.error('Błąd insert wyniki_partii:', error)
+        return new Response(JSON.stringify({ errors: ['Błąd przy tworzeniu partii'] }), { status: 500 })
       }
 
-      return row
-    })
-
-    const { error: insertError } = await supabase.from('wyniki_partii').insert(rows)
-    if (insertError) {
-      console.error('Błąd przy tworzeniu partii:', insertError)
-      return new Response(JSON.stringify({ errors: ['Błąd przy tworzeniu partii'] }), { status: 500 })
+      // ✅ “z odstępem 1 sekundowym po kolei” – realny odstęp
+      // (jeśli wolisz tylko różne timestamps bez czekania, usuń sleep)
+      if (partiaIndex < liczba_partii - 1) {
+        await sleep(1000)
+      }
     }
 
-    // odśwież widok listy partii
     revalidatePath(`/admin/turniej/${turniej_id}/partie`)
 
-    return new Response(
-      JSON.stringify({
-        success: true,
-        saved: liczba_partii,
-        numer_od: numer_partii_start,
-        numer_do: numer_partii_start + liczba_partii - 1,
-      }),
-      {
-        status: 200,
-        headers: { 'Content-Type': 'application/json' },
-      }
-    )
+    return new Response(JSON.stringify({ success: true }), {
+      status: 200,
+      headers: { 'Content-Type': 'application/json' },
+    })
   } catch (err) {
-    console.error('Błąd podczas zapisywania partii:', err)
+    console.error('Błąd POST /partie/nowa/action:', err)
     return new Response(JSON.stringify({ errors: ['Wewnętrzny błąd serwera'] }), { status: 500 })
   }
 }
