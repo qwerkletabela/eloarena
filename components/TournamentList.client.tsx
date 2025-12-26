@@ -20,7 +20,7 @@ type AutorTurnieju = {
   username: string | null
 }
 
-type TurniejRow = {
+export type TurniejRow = {
   id: string
   nazwa: string
   data_turnieju: string | null
@@ -30,7 +30,7 @@ type TurniejRow = {
   limit_graczy: number | null
   miejsce_id: string | null
   miejsce_turnieju: MiejsceTurnieju | null
-  created_by: AutorTurnieju | null // ✅ NOWE
+  created_by: AutorTurnieju | null
 }
 
 // Klasy stylów z profilu
@@ -144,13 +144,11 @@ function TournamentCard({
       onClick={() => onCardClick(r)}
     >
       <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
-        {/* Lewa strona */}
         <div className="flex-1 min-w-0">
           <h3 className="text-xl font-semibold text-sky-50 mb-3 group-hover:text-sky-100 transition-colors">
             {r.nazwa}
           </h3>
 
-          {/* Data i godzina */}
           {start && (
             <div className="flex items-center gap-2 text-sm text-sky-200/80 mb-2 group-hover:text-sky-200 transition-colors">
               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -168,7 +166,6 @@ function TournamentCard({
             </div>
           )}
 
-          {/* ✅ Kto utworzył */}
           <div className="flex items-center gap-2 text-xs text-sky-200/60 mb-3 group-hover:text-sky-200/70 transition-colors">
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path
@@ -183,7 +180,6 @@ function TournamentCard({
             </span>
           </div>
 
-          {/* Miejsce i adres */}
           {miejsce ? (
             <div className="flex items-start gap-2 text-sm text-sky-200/80 group-hover:text-sky-200 transition-colors">
               <svg className="w-4 h-4 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -193,7 +189,12 @@ function TournamentCard({
                   strokeWidth={2}
                   d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"
                 />
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"
+                />
               </svg>
               <div>
                 <div className="font-medium text-sky-100 group-hover:text-sky-50 transition-colors">
@@ -223,7 +224,6 @@ function TournamentCard({
           )}
         </div>
 
-        {/* Prawa strona - Status */}
         {badge && (
           <div className={`shrink-0 ${badgeHoverClass}`}>
             <span style={getBadgeStyle(badge.text)}>{badge.text}</span>
