@@ -37,6 +37,7 @@ export default async function TurniejListPage() {
       `
       id,
       nazwa,
+      gra,
       data_turnieju,
       godzina_turnieju,
       zakonczenie_turnieju,
@@ -82,6 +83,7 @@ export default async function TurniejListPage() {
   const tournaments: TurniejRow[] = (rows ?? []).map((row: any) => ({
     id: String(row.id),
     nazwa: String(row.nazwa || ''),
+    gra: String(row.gra || ''), // ✅ DODANE
     data_turnieju: row.data_turnieju ? String(row.data_turnieju) : null,
     godzina_turnieju: row.godzina_turnieju ? String(row.godzina_turnieju) : null,
     zakonczenie_turnieju: row.zakonczenie_turnieju ? String(row.zakonczenie_turnieju) : null,
@@ -89,7 +91,7 @@ export default async function TurniejListPage() {
     limit_graczy: row.limit_graczy != null ? Number(row.limit_graczy) : null,
     miejsce_id: row.miejsce_id ? String(row.miejsce_id) : null,
     miejsce_turnieju: safeMiejsceTurnieju(row.miejsce_turnieju),
-    created_by: safeCreator(row.creator), // ✅ alias z selecta
+    created_by: safeCreator(row.creator),
   }))
 
   return <TournamentList tournaments={tournaments} />

@@ -23,6 +23,7 @@ type AutorTurnieju = {
 export type TurniejRow = {
   id: string
   nazwa: string
+  gra: string // ⭐ DODANE (np. 'qwirkle', 'rummikub_standard')
   data_turnieju: string | null
   godzina_turnieju: string | null
   zakonczenie_turnieju: string | null
@@ -50,6 +51,17 @@ const secondaryBtn =
   'inline-flex items-center justify-center rounded-full border border-slate-500 ' +
   'bg-slate-800/80 px-4 py-2 text-sm font-semibold text-sky-100 shadow-sm ' +
   'hover:bg-slate-700 hover:border-sky-400 transition'
+
+// ⭐ DODANE – mapowanie gry → watermark
+function gameWatermark(gra: string) {
+  if (gra === 'qwirkle') {
+    return { src: '/brand/games/qwirkle.svg', alt: 'Qwirkle' }
+  }
+  if (gra.startsWith('rummikub')) {
+    return { src: '/brand/games/rummikub.svg', alt: 'Rummikub' }
+  }
+  return null
+}
 
 // Funkcja pomocnicza do określania stylu na podstawie tekstu badge
 function getBadgeStyle(text: string): React.CSSProperties {
@@ -137,13 +149,27 @@ function TournamentCard({
 
   const miejsce = r.miejsce_turnieju
   const creatorLabel = formatCreatorLabel(r)
+  const wm = gameWatermark(r.gra) // ⭐ DODANE
 
   return (
     <div
-      className="rounded-2xl border border-slate-700 bg-slate-800/95 p-6 shadow-[0_14px_40px_rgba(0,0,0,0.8)] hover:shadow-[0_18px_50px_rgba(0,0,0,0.9)] transition-all duration-300 cursor-pointer group"
+      className="relative overflow-hidden rounded-2xl border border-slate-700 bg-slate-800/95 p-6 shadow-[0_14px_40px_rgba(0,0,0,0.8)] hover:shadow-[0_18px_50px_rgba(0,0,0,0.9)] transition-all duration-300 cursor-pointer group"
       onClick={() => onCardClick(r)}
     >
-      <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
+      {/* ⭐ DODANE – watermark gry */}
+      {wm && (
+        <div className="pointer-events-none absolute inset-0">
+          <img
+            src={wm.src}
+            alt={wm.alt}
+            className="absolute top-[10px] right-[10px] w-[30%] max-w-[260px] min-w-[120px] opacity-[0.9] select-none"
+          />
+          <div className="absolute inset-0 bg-gradient-to-r from-slate-800/95 via-slate-800/90 to-slate-800/60" />
+        </div>
+      )}
+
+      {/* oryginalna zawartość */}
+      <div className="relative z-10 flex flex-col sm:flex-row sm:items-start justify-between gap-4">
         <div className="flex-1 min-w-0">
           <h3 className="text-xl font-semibold text-sky-50 mb-3 group-hover:text-sky-100 transition-colors">
             {r.nazwa}
@@ -151,14 +177,6 @@ function TournamentCard({
 
           {start && (
             <div className="flex items-center gap-2 text-sm text-sky-200/80 mb-2 group-hover:text-sky-200 transition-colors">
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"
-                />
-              </svg>
               <span>
                 {formatDatePL(start)} • {formatTimeHHMM(r.godzina_turnieju)}
                 {end && ` - ${formatTimeHHMM(r.zakonczenie_turnieju)}`}
@@ -166,69 +184,28 @@ function TournamentCard({
             </div>
           )}
 
-          <div className="flex items-center gap-2 text-xs text-sky-200/60 mb-3 group-hover:text-sky-200/70 transition-colors">
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M5.121 17.804A13.937 13.937 0 0112 16c2.5 0 4.847.655 6.879 1.804M15 11a3 3 0 11-6 0 3 3 0 016 0z"
-              />
-            </svg>
-            <span>
-              Utworzył: <span className="text-sky-100/90">{creatorLabel}</span>
-            </span>
+          <div className="flex items-center gap-2 text-xs text-sky-200/60 mb-3">
+            Utworzył: <span className="text-sky-100/90">{creatorLabel}</span>
           </div>
 
-          {miejsce ? (
-            <div className="flex items-start gap-2 text-sm text-sky-200/80 group-hover:text-sky-200 transition-colors">
-              <svg className="w-4 h-4 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"
-                />
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"
-                />
-              </svg>
-              <div>
-                <div className="font-medium text-sky-100 group-hover:text-sky-50 transition-colors">
-                  {miejsce.nazwa}, {miejsce.miasto}
-                </div>
-                {miejsce.adres && (
-                  <div className="text-sky-200/60 text-xs mt-0.5 group-hover:text-sky-200/70 transition-colors">
-                    {miejsce.adres}
-                  </div>
-                )}
+          {miejsce && (
+            <div className="text-sm text-sky-200/80">
+              <div className="font-medium text-sky-100">
+                {miejsce.nazwa}, {miejsce.miasto}
               </div>
-            </div>
-          ) : (
-            <div className="flex items-start gap-2 text-sm text-red-400/80">
-              <svg className="w-4 h-4 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.35 16.5c-.77.833.192 2.5 1.732 2.5z"
-                />
-              </svg>
-              <div>
-                <div>Brak danych miejsca</div>
-              </div>
+              {miejsce.adres && (
+                <div className="text-sky-200/60 text-xs">{miejsce.adres}</div>
+              )}
             </div>
           )}
         </div>
 
         {badge && (
-          <div className={`shrink-0 ${badgeHoverClass}`}>
-            <span style={getBadgeStyle(badge.text)}>{badge.text}</span>
-          </div>
-        )}
+        <div className={`absolute bottom-[5px] right-[5px] ${badgeHoverClass}`}>
+        <span style={getBadgeStyle(badge.text)}>{badge.text}</span>
+        </div>
+                  )}
+
       </div>
     </div>
   )
@@ -268,53 +245,6 @@ export default function TournamentList({ tournaments }: { tournaments: TurniejRo
           <div className="w-full max-w-4xl rounded-2xl bg-slate-800/95 border border-slate-700 shadow-[0_14px_40px_rgba(0,0,0,0.8)] p-6 space-y-6">
             <h1 className="text-2xl font-semibold text-sky-50 text-center">Lista Turniejów</h1>
 
-            <div className="space-y-2">
-              <div className="relative">
-                <input
-                  type="text"
-                  placeholder="Szukaj turnieju, miejsca lub miasta..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className={inputClass + ' pl-10'}
-                />
-                <svg
-                  className="absolute left-3 top-2.5 w-4 h-4 text-slate-400"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
-                  />
-                </svg>
-
-                {searchTerm && (
-                  <button
-                    onClick={() => setSearchTerm('')}
-                    className="absolute right-3 top-2.5 text-slate-400 hover:text-sky-100 transition"
-                  >
-                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                    </svg>
-                  </button>
-                )}
-              </div>
-
-              {searchTerm && (
-                <div className="text-sm text-sky-200/60">
-                  Znaleziono {filteredTournaments.length} turniej
-                  {filteredTournaments.length === 1
-                    ? ''
-                    : filteredTournaments.length >= 2 && filteredTournaments.length <= 4
-                      ? 'e'
-                      : 'y'}
-                </div>
-              )}
-            </div>
-
             {filteredTournaments.length > 0 ? (
               <div className="space-y-4">
                 {filteredTournaments.map((r) => (
@@ -323,16 +253,7 @@ export default function TournamentList({ tournaments }: { tournaments: TurniejRo
               </div>
             ) : (
               <div className="rounded-2xl border border-slate-700 bg-slate-800/95 p-8 text-center">
-                {searchTerm ? (
-                  <>
-                    <div className="text-sky-100/80 text-lg mb-2">
-                      Nie znaleziono turniejów dla "{searchTerm}"
-                    </div>
-                    <div className="text-sky-200/60 text-sm">Spróbuj zmienić kryteria wyszukiwania</div>
-                  </>
-                ) : (
-                  <div className="text-sky-100/80 text-lg mb-2">Brak turniejów</div>
-                )}
+                Brak turniejów
               </div>
             )}
           </div>
