@@ -36,7 +36,7 @@ export default function OrganizerSidebar({ user, role }: OrganizerSidebarProps) 
     },
     {
       title: 'Moje turnieje',
-      href: '/organizer/turnieje',
+      href: '/admin/turniej',
       icon: <List className="h-5 w-5" />,
       description: 'Zarządzaj turniejami',
     },
