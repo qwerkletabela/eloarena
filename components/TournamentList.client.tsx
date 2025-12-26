@@ -162,7 +162,7 @@ function TournamentCard({
           <img
             src={wm.src}
             alt={wm.alt}
-            className="absolute top-[10px] right-[10px] w-[30%] max-w-[260px] min-w-[120px] opacity-[0.9] select-none"
+            className="absolute top-[8px] right-[8px] w-[30%] max-w-[260px] min-w-[120px] opacity-[0.9] select-none"
           />
           <div className="absolute inset-0 bg-gradient-to-r from-slate-800/95 via-slate-800/90 to-slate-800/60" />
         </div>
