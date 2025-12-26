@@ -6,26 +6,25 @@ import type { TurniejRow } from '@/components/TournamentList.client'
 export const dynamic = 'force-dynamic'
 export const revalidate = 0
 
-type MiejsceTurnieju = NonNullable<TurniejRow['miejsce_turnieju']>
-type AutorTurnieju = NonNullable<TurniejRow['created_by']>
-
-function safeMiejsceTurnieju(miejsce: any): NonNullable<TurniejRow['miejsce_turnieju']> {
+function safeMiejsceTurnieju(m: any): TurniejRow['miejsce_turnieju'] {
+  if (!m || typeof m !== 'object') return null
   return {
-    id: String(miejsce?.id || ''),
-    nazwa: String(miejsce?.nazwa || ''),
-    miasto: String(miejsce?.miasto || ''),
-    wojewodztwo: miejsce?.wojewodztwo ? String(miejsce.wojewodztwo) : null,
-    adres: miejsce?.adres ? String(miejsce.adres) : null,
-    latitude: typeof miejsce?.latitude === 'number' ? miejsce.latitude : null,
-    longitude: typeof miejsce?.longitude === 'number' ? miejsce.longitude : null,
+    id: String(m.id || ''),
+    nazwa: String(m.nazwa || ''),
+    miasto: String(m.miasto || ''),
+    wojewodztwo: m.wojewodztwo ? String(m.wojewodztwo) : null,
+    adres: m.adres ? String(m.adres) : null,
+    latitude: typeof m.latitude === 'number' ? m.latitude : null,
+    longitude: typeof m.longitude === 'number' ? m.longitude : null,
   }
 }
 
-function safeAutorTurnieju(u: any): NonNullable<TurniejRow['created_by']> {
+function safeCreator(u: any): TurniejRow['created_by'] {
+  if (!u || typeof u !== 'object') return null
   return {
-    id: String(u?.id || ''),
-    email: u?.email ? String(u.email) : null,
-    username: u?.username ? String(u.username) : null,
+    id: String(u.id || ''),
+    email: u.email ? String(u.email) : null,
+    username: u.username ? String(u.username) : null,
   }
 }
 
@@ -55,7 +54,7 @@ export default async function TurniejListPage() {
         longitude
       ),
 
-      created_by (
+      creator:profiles!turniej_created_by_profiles_fkey (
         id,
         email,
         username
@@ -89,9 +88,8 @@ export default async function TurniejListPage() {
     gsheet_url: row.gsheet_url ? String(row.gsheet_url) : null,
     limit_graczy: row.limit_graczy != null ? Number(row.limit_graczy) : null,
     miejsce_id: row.miejsce_id ? String(row.miejsce_id) : null,
-
-    miejsce_turnieju: row.miejsce_turnieju ? safeMiejsceTurnieju(row.miejsce_turnieju) : null,
-    created_by: row.created_by ? safeAutorTurnieju(row.created_by) : null,
+    miejsce_turnieju: safeMiejsceTurnieju(row.miejsce_turnieju),
+    created_by: safeCreator(row.creator), // ✅ alias z selecta
   }))
 
   return <TournamentList tournaments={tournaments} />
