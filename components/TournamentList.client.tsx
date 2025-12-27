@@ -55,14 +55,35 @@ const secondaryBtn =
 
 // ⭐ DODANE – mapowanie gry → watermark
 function gameWatermark(gra: string) {
-  if (gra === 'qwirkle') {
+  if (!gra) return null
+
+  const g = gra.toLowerCase()
+
+  if (g === 'qwirkle') {
     return { src: '/brand/games/qwirkle.svg', alt: 'Qwirkle' }
   }
-  if (gra.startsWith('rummikub')) {
+
+  // Rummikub – konkretne warianty (najpierw szczegółowe)
+  if (g.includes('rummikub') && (g.includes('expert') || g.includes('ekspert'))) {
+    return { src: '/brand/games/rummikub-expert.svg', alt: 'Rummikub – Expert' }
+  }
+
+  if (g.includes('rummikub') && g.includes('twist')) {
+    return { src: '/brand/games/rummikub-twist.svg', alt: 'Rummikub – Twist' }
+  }
+
+  if (g.includes('rummikub') && (g.includes('pojedynek') || g.includes('duel'))) {
+    return { src: '/brand/games/rummikub-pojedynek.svg', alt: 'Rummikub – Pojedynek' }
+  }
+
+  // fallback: każdy inny rummikub
+  if (g.startsWith('rummikub')) {
     return { src: '/brand/games/rummikub.svg', alt: 'Rummikub' }
   }
+
   return null
 }
+
 
 // Funkcja pomocnicza do określania stylu na podstawie tekstu badge
 function getBadgeStyle(text: string): React.CSSProperties {
@@ -163,7 +184,7 @@ function TournamentCard({
           <img
             src={wm.src}
             alt={wm.alt}
-            className="absolute top-[8px] right-[8px] w-[30%] max-w-[260px] min-w-[120px] opacity-[0.9] select-none"
+            className="absolute top-[8px] right-[8px] w-[30%] max-w-[260px] min-w-[120px] opacity-[0.99] select-none"
           />
           <div className="absolute inset-0 bg-gradient-to-r from-slate-800/95 via-slate-800/90 to-slate-800/60" />
         </div>
