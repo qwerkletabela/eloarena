@@ -1,7 +1,7 @@
 /* component TournamentList.client.tsx */
 'use client'
 
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect } from 'react'
 import TournamentModal from './TournamentModal'
 import { formatDatePL, formatTimeHHMM, joinDateTime, statusBadge } from '@/lib/utils'
 
@@ -84,6 +84,20 @@ function gameWatermark(gra: string) {
   return null
 }
 
+/** ✅ czy po 60 dniach od zakończenia ma być "archiwum" */
+function isArchivedAfter60Days(end: Date | null) {
+  if (!end) return false
+  const MS_60_DAYS = 60 * 24 * 60 * 60 * 1000
+  return Date.now() - end.getTime() >= MS_60_DAYS
+}
+
+/** ✅ NOWE: czy turniej ma trafić do widoku archiwum */
+function isTournamentArchivedView(r: TurniejRow) {
+  const end = r.zakonczenie_turnieju
+    ? joinDateTime(r.data_turnieju, r.zakonczenie_turnieju)
+    : null
+  return isArchivedAfter60Days(end)
+}
 
 // Funkcja pomocnicza do określania stylu na podstawie tekstu badge
 function getBadgeStyle(text: string): React.CSSProperties {
@@ -102,6 +116,23 @@ function getBadgeStyle(text: string): React.CSSProperties {
     boxShadow: '0 4px 20px rgba(0, 0, 0, 0.4), 0 2px 8px rgba(0, 0, 0, 0.2)',
   }
 
+  // ARCHIWUM (zamiast "zakończony" po 60 dniach)
+  if (text === 'archiwum') {
+    return {
+      ...baseStyle,
+      backgroundColor: 'rgba(148, 163, 184, 0.22)',
+      borderColor: 'rgba(148, 163, 184, 0.4)',
+      color: '#ffffff',
+      boxShadow: `
+        0 4px 20px rgba(0, 0, 0, 0.4),
+        0 2px 8px rgba(0, 0, 0, 0.2),
+        inset 0 1px 0 rgba(255, 255, 255, 0.08),
+        inset 0 -1px 0 rgba(0, 0, 0, 0.25)
+      `,
+      textShadow: '0 1px 2px rgba(0, 0, 0, 0.35)',
+    }
+  }
+
   if (text === 'w trakcie') {
     return {
       ...baseStyle,
@@ -112,7 +143,7 @@ function getBadgeStyle(text: string): React.CSSProperties {
         0 4px 20px rgba(0, 0, 0, 0.4),
         0 2px 8px rgba(0, 0, 0, 0.2),
         inset 0 1px 0 rgba(255, 255, 255, 0.1),
-        inset 0 -1px 0 rgba(0, 0, 0, 0.2)
+        inset 0 -1px 0 rgba(0,  0, 0, 0.2)
       `,
       textShadow: '0 1px 2px rgba(0, 0, 0, 0.3)',
     }
@@ -171,14 +202,16 @@ function TournamentCard({
 
   const miejsce = r.miejsce_turnieju
   const creatorLabel = formatCreatorLabel(r)
-  const wm = gameWatermark(r.gra) // ⭐ DODANE
+  const wm = gameWatermark(r.gra)
+
+  const showArchive = isArchivedAfter60Days(end)
+  const badgeText = showArchive ? 'archiwum' : badge?.text
 
   return (
     <div
       className="relative overflow-hidden rounded-2xl border border-slate-700 bg-slate-800/95 p-6 shadow-[0_14px_40px_rgba(0,0,0,0.8)] hover:shadow-[0_18px_50px_rgba(0,0,0,0.9)] transition-all duration-300 cursor-pointer group"
       onClick={() => onCardClick(r)}
     >
-      {/* ⭐ DODANE – watermark gry */}
       {wm && (
         <div className="pointer-events-none absolute inset-0">
           <img
@@ -190,7 +223,6 @@ function TournamentCard({
         </div>
       )}
 
-      {/* oryginalna zawartość */}
       <div className="relative z-10 flex flex-col sm:flex-row sm:items-start justify-between gap-4">
         <div className="flex-1 min-w-0">
           <h3 className="text-xl font-semibold text-sky-50 mb-3 group-hover:text-sky-100 transition-colors">
@@ -222,12 +254,11 @@ function TournamentCard({
           )}
         </div>
 
-        {badge && (
-        <div className={`absolute bottom-[5px] right-[5px] ${badgeHoverClass}`}>
-        <span style={getBadgeStyle(badge.text)}>{badge.text}</span>
-        </div>
-                  )}
-
+        {badgeText && (
+          <div className={`absolute bottom-[5px] right-[5px] ${badgeHoverClass}`}>
+            <span style={getBadgeStyle(badgeText)}>{badgeText}</span>
+          </div>
+        )}
       </div>
     </div>
   )
@@ -237,6 +268,13 @@ export default function TournamentList({ tournaments }: { tournaments: TurniejRo
   const [selectedTournament, setSelectedTournament] = useState<TurniejRow | null>(null)
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [searchTerm, setSearchTerm] = useState('')
+
+  // ✅ NOWE: przełącznik widoku archiwum
+  const [showArchiveView, setShowArchiveView] = useState(false)
+
+  // ✅ PAGINACJA (zawsze 10)
+  const PAGE_SIZE = 10
+  const [page, setPage] = useState(1)
 
   const handleCardClick = (tournament: TurniejRow) => {
     setSelectedTournament(tournament)
@@ -249,33 +287,102 @@ export default function TournamentList({ tournaments }: { tournaments: TurniejRo
   }
 
   const filteredTournaments = useMemo(() => {
-    if (!searchTerm.trim()) return tournaments
+    // ✅ 1) najpierw filtr: archiwum vs normalne
+    const base = tournaments.filter((t) => {
+      const isArch = isTournamentArchivedView(t)
+      return showArchiveView ? isArch : !isArch
+    })
+
+    // ✅ 2) potem wyszukiwanie
+    if (!searchTerm.trim()) return base
 
     const lowercasedSearch = searchTerm.toLowerCase().trim()
-    return tournaments.filter(
+    return base.filter(
       (tournament) =>
         tournament.nazwa.toLowerCase().includes(lowercasedSearch) ||
         tournament.miejsce_turnieju?.nazwa.toLowerCase().includes(lowercasedSearch) ||
         tournament.miejsce_turnieju?.miasto.toLowerCase().includes(lowercasedSearch)
     )
-  }, [tournaments, searchTerm])
+  }, [tournaments, searchTerm, showArchiveView])
+
+  // ✅ po zmianie wyszukiwania / widoku wróć na 1 stronę
+  useEffect(() => {
+    setPage(1)
+  }, [searchTerm, showArchiveView])
+
+  // ✅ obliczenia paginacji
+  const total = filteredTournaments.length
+  const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE))
+  const currentPage = Math.min(page, totalPages)
+  const startIndex = (currentPage - 1) * PAGE_SIZE
+  const endIndex = startIndex + PAGE_SIZE
+  const pageItems = filteredTournaments.slice(startIndex, endIndex)
 
   return (
     <>
       <div className="min-h-screen">
         <main className="flex min-h-[calc(100vh-4rem)] items-center justify-center px-4 py-8">
           <div className="w-full max-w-4xl rounded-2xl bg-slate-800/95 border border-slate-700 shadow-[0_14px_40px_rgba(0,0,0,0.8)] p-6 space-y-6">
-            <h1 className="text-2xl font-semibold text-sky-50 text-center">Lista Turniejów</h1>
+            {/* ✅ NOWE: tytuł + przycisk archiwum */}
+            <div className="flex items-center justify-between gap-3">
+              <h1 className="text-2xl font-semibold text-sky-50">
+                {showArchiveView ? 'Archiwum turniejów' : 'Lista Turniejów'}
+              </h1>
 
-            {filteredTournaments.length > 0 ? (
-              <div className="space-y-4">
-                {filteredTournaments.map((r) => (
-                  <TournamentCard key={r.id} r={r} onCardClick={handleCardClick} />
-                ))}
-              </div>
+              <button
+                className={secondaryBtn}
+                onClick={() => setShowArchiveView((v) => !v)}
+              >
+                {showArchiveView ? '← Wróć' : 'Archiwum'}
+              </button>
+            </div>
+
+            {/* ✅ Wyszukiwarka */}
+            <input
+              className={inputClass}
+              placeholder={
+                showArchiveView
+                  ? 'Szukaj w archiwum (turniej / miejsce / miasto)...'
+                  : 'Szukaj turnieju / miejsca / miasta...'
+              }
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+            />
+
+            {pageItems.length > 0 ? (
+              <>
+                <div className="space-y-4">
+                  {pageItems.map((r) => (
+                    <TournamentCard key={r.id} r={r} onCardClick={handleCardClick} />
+                  ))}
+                </div>
+
+                {/* ✅ Paginacja */}
+                <div className="flex items-center justify-between pt-2">
+                  <button
+                    className={secondaryBtn}
+                    onClick={() => setPage((p) => Math.max(1, p - 1))}
+                    disabled={currentPage === 1}
+                  >
+                    ← Poprzednia
+                  </button>
+
+                  <div className="text-sm text-sky-100/90">
+                    Strona <span className="font-semibold">{currentPage}</span> / {totalPages}
+                  </div>
+
+                  <button
+                    className={secondaryBtn}
+                    onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                    disabled={currentPage === totalPages}
+                  >
+                    Następna →
+                  </button>
+                </div>
+              </>
             ) : (
               <div className="rounded-2xl border border-slate-700 bg-slate-800/95 p-8 text-center">
-                Brak turniejów
+                {showArchiveView ? 'Brak turniejów w archiwum' : 'Brak turniejów'}
               </div>
             )}
           </div>
