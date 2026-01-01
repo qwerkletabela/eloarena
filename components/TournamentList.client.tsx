@@ -294,15 +294,64 @@ export default function TournamentList({ tournaments }: { tournaments: TurniejRo
     })
 
     // ✅ 2) potem wyszukiwanie
-    if (!searchTerm.trim()) return base
+    const searched = (() => {
+      if (!searchTerm.trim()) return base
 
-    const lowercasedSearch = searchTerm.toLowerCase().trim()
-    return base.filter(
-      (tournament) =>
-        tournament.nazwa.toLowerCase().includes(lowercasedSearch) ||
-        tournament.miejsce_turnieju?.nazwa.toLowerCase().includes(lowercasedSearch) ||
-        tournament.miejsce_turnieju?.miasto.toLowerCase().includes(lowercasedSearch)
-    )
+      const lowercasedSearch = searchTerm.toLowerCase().trim()
+      return base.filter(
+        (tournament) =>
+          tournament.nazwa.toLowerCase().includes(lowercasedSearch) ||
+          tournament.miejsce_turnieju?.nazwa.toLowerCase().includes(lowercasedSearch) ||
+          tournament.miejsce_turnieju?.miasto.toLowerCase().includes(lowercasedSearch)
+      )
+    })()
+
+    // ✅ 3) SORTOWANIE:
+    // - widok normalny: na górze turnieje "najpóźniej" (przyszłe), na dole zakończone
+    // - archiwum: odwrotnie wg "świeżości" (najnowsze archiwalne na górze)
+    const now = Date.now()
+
+    return searched
+      .slice()
+      .sort((a, b) => {
+        const aStart = joinDateTime(a.data_turnieju, a.godzina_turnieju)?.getTime() ?? Number.POSITIVE_INFINITY
+        const bStart = joinDateTime(b.data_turnieju, b.godzina_turnieju)?.getTime() ?? Number.POSITIVE_INFINITY
+
+        const aEnd = a.zakonczenie_turnieju
+          ? joinDateTime(a.data_turnieju, a.zakonczenie_turnieju)?.getTime() ?? Number.POSITIVE_INFINITY
+          : Number.POSITIVE_INFINITY
+        const bEnd = b.zakonczenie_turnieju
+          ? joinDateTime(b.data_turnieju, b.zakonczenie_turnieju)?.getTime() ?? Number.POSITIVE_INFINITY
+          : Number.POSITIVE_INFINITY
+
+        // ARCHIWUM: najnowsze zakończone (archiwalne) na górze
+        if (showArchiveView) {
+          if (aEnd !== bEnd) return bEnd - aEnd
+          if (aStart !== bStart) return bStart - aStart
+          return a.nazwa.localeCompare(b.nazwa, 'pl')
+        }
+
+        // NORMALNY WIDOK: grupy -> przyszłe / w trakcie / zakończone (zakończone na dole)
+        const aGroup =
+          aStart > now ? 0 : aEnd === Number.POSITIVE_INFINITY || aEnd >= now ? 1 : 2
+        const bGroup =
+          bStart > now ? 0 : bEnd === Number.POSITIVE_INFINITY || bEnd >= now ? 1 : 2
+
+        if (aGroup !== bGroup) return aGroup - bGroup
+
+        // w obrębie grup:
+        // - przyszłe: "najpóźniej" na górze (DESC)
+        // - w trakcie: też DESC po starcie
+        if (aGroup === 0 || aGroup === 1) {
+          if (aStart !== bStart) return bStart - aStart
+          return a.nazwa.localeCompare(b.nazwa, 'pl')
+        }
+
+        // - zakończone: mogą być na dole, a w środku najświeżej zakończone wyżej (DESC po end)
+        if (aEnd !== bEnd) return bEnd - aEnd
+        if (aStart !== bStart) return bStart - aStart
+        return a.nazwa.localeCompare(b.nazwa, 'pl')
+      })
   }, [tournaments, searchTerm, showArchiveView])
 
   // ✅ po zmianie wyszukiwania / widoku wróć na 1 stronę
@@ -389,7 +438,11 @@ export default function TournamentList({ tournaments }: { tournaments: TurniejRo
         </main>
       </div>
 
-      <TournamentModal isOpen={isModalOpen} onClose={handleCloseModal} tournament={selectedTournament} />
+      <TournamentModal
+        isOpen={isModalOpen}
+        onClose={handleCloseModal}
+        tournament={selectedTournament}
+      />
     </>
   )
 }

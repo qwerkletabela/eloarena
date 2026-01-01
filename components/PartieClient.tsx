@@ -33,6 +33,10 @@ interface PartiaZGraczami {
     nazwa: string
   }
   gracze: Gracz[]
+  gracz1_id?: string | null
+  gracz2_id?: string | null
+  gracz3_id?: string | null
+  gracz4_id?: string | null
   [key: string]: any
 }
 
@@ -132,8 +136,19 @@ export default function PartieClient({ partie, turnieje = [] }: PartieClientProp
             (g) => g.id === partia.duzy_punkt_gracz_id
           )
 
-          // Przygotuj dane graczy dla komponentu DeletePartia
-          const graczeDlaUsuwania = partia.gracze.map((gracz, index) => {
+          // ✅ Ułóż graczy wg slotów: gracz1_id..gracz4_id (A,B,C,D)
+          const graczeWgSlotow = [
+            partia.gracz1_id,
+            partia.gracz2_id,
+            partia.gracz3_id,
+            partia.gracz4_id,
+          ]
+            .filter(Boolean)
+            .map((id) => partia.gracze.find((g) => g.id === id))
+            .filter(Boolean) as Gracz[]
+
+          // Przygotuj dane graczy dla komponentu DeletePartia (również wg slotów)
+          const graczeDlaUsuwania = graczeWgSlotow.map((gracz, index) => {
             const numerGracza = index + 1
             return {
               id: gracz.id,
@@ -202,7 +217,7 @@ export default function PartieClient({ partie, turnieje = [] }: PartieClientProp
                       </tr>
                     </thead>
                     <tbody>
-                      {partia.gracze.map((gracz, index) => {
+                      {graczeWgSlotow.map((gracz, index) => {
                         const isWinner = gracz.id === partia.duzy_punkt_gracz_id
                         const playerLetter = String.fromCharCode(65 + index) // A, B, C, D
 
