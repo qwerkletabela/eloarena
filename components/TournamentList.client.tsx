@@ -178,8 +178,8 @@ function getBadgeStyle(text: string): React.CSSProperties {
   }
 }
 
-const badgeHoverClass =
-  'hover:scale-[1.02] hover:shadow-[0_6px_24px_rgba(0,0,0,0.5)] transition-all duration-200'
+/* ✅ hover badge WYŁĄCZONY */
+const badgeHoverClass = 'transition-all duration-200'
 
 function formatCreatorLabel(r: TurniejRow) {
   const u = r.created_by
@@ -212,18 +212,9 @@ function TournamentCard({
       className="relative overflow-hidden rounded-2xl border border-slate-700 bg-slate-800/95 p-6 shadow-[0_14px_40px_rgba(0,0,0,0.8)] hover:shadow-[0_18px_50px_rgba(0,0,0,0.9)] transition-all duration-300 cursor-pointer group"
       onClick={() => onCardClick(r)}
     >
-      {wm && (
-        <div className="pointer-events-none absolute inset-0">
-          <img
-            src={wm.src}
-            alt={wm.alt}
-            className="absolute top-[8px] right-[8px] w-[30%] max-w-[260px] min-w-[120px] opacity-[0.99] select-none"
-          />
-          <div className="absolute inset-0 bg-gradient-to-r from-slate-800/95 via-slate-800/90 to-slate-800/60" />
-        </div>
-      )}
-
-      <div className="relative z-10 flex flex-col sm:flex-row sm:items-start justify-between gap-4">
+      {/* ✅ NOWE: układ 2-kolumnowy: tekst + prawa kolumna (logo + badge) */}
+      <div className="relative z-10 flex items-stretch gap-4">
+        {/* LEWA: treść */}
         <div className="flex-1 min-w-0">
           <h3 className="text-xl font-semibold text-sky-50 mb-3 group-hover:text-sky-100 transition-colors">
             {r.nazwa}
@@ -248,18 +239,36 @@ function TournamentCard({
                 {miejsce.nazwa}, {miejsce.miasto}
               </div>
               {miejsce.adres && (
-                <div className="text-sky-200/60 text-xs">{miejsce.adres}</div>
+                <div className="text-sky-200/60 text-xs break-words">{miejsce.adres}</div>
               )}
             </div>
           )}
         </div>
 
-        {badgeText && (
-          <div className={`absolute bottom-[5px] right-[5px] ${badgeHoverClass}`}>
-            <span style={getBadgeStyle(badgeText)}>{badgeText}</span>
-          </div>
-        )}
+        {/* PRAWA: stała kolumna bez tekstu */}
+        <div className="relative w-[140px] shrink-0">
+          {/* watermark (logo) na dole */}
+          {wm && (
+            <div className="pointer-events-none absolute inset-0 flex items-top justify-center pb-10">
+              <img
+                src={wm.src}
+                alt={wm.alt}
+                className="w-full opacity-[0.55] select-none"
+              />
+            </div>
+          )}
+
+          {/* badge na dole */}
+          {badgeText && (
+            <div className={`absolute bottom-[5px] right-[5px] z-20 ${badgeHoverClass}`}>
+              <span style={getBadgeStyle(badgeText)}>{badgeText}</span>
+            </div>
+          )}
+        </div>
       </div>
+
+      {/* zostawiamy gradient jako tło całej karty (opcjonalnie) */}
+      <div className="pointer-events-none absolute inset-0 bg-gradient-to-r from-slate-800/95 via-slate-800/90 to-slate-800/60" />
     </div>
   )
 }
